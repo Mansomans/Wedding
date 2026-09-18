@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: wedding-weekend
+    runtime: static
+    staticPublishPath: .
+    buildCommand: ""
+    headers:
+      - path: /*
+        name: X-Robots-Tag
+        value: noindex, nofollow
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

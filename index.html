@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<title>Our Wedding Weekend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Karla:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F5F3EE; --surface:#FFFFFF; --surface-2:#ECE9E1; --line:#D9D4C8; --line-strong:#B9B2A2;
+  --ink:#1E2723; --ink-2:#4E5852; --muted:#7A847D;
+  --accent:#2F5F4F; --accent-ink:#FFFFFF; --accent-soft:#DCE9E2;
+  --gold:#A8843F; --gold-soft:#F1E7D2; --blush:#C98F86; --blush-soft:#F4E3DF;
+  --good:#2E7D4F; --warn:#B4741A; --bad:#A7443A;
+  --shadow:0 1px 2px rgba(30,39,35,.06),0 8px 24px -12px rgba(30,39,35,.18);
+  --display:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+  --body:"Karla","Helvetica Neue",Arial,sans-serif;
+  --radius:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#131917; --surface:#1B2320; --surface-2:#222C28; --line:#2F3B36; --line-strong:#4A5852;
+    --ink:#ECE8DF; --ink-2:#C2BEB4; --muted:#8F988F;
+    --accent:#7FB89F; --accent-ink:#0F1A15; --accent-soft:#223A31;
+    --gold:#D3B26F; --gold-soft:#3A3120; --blush:#D9A59B; --blush-soft:#3E2C29;
+    --good:#7FC79A; --warn:#E0AE5B; --bad:#E08A80;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131917; --surface:#1B2320; --surface-2:#222C28; --line:#2F3B36; --line-strong:#4A5852;
+  --ink:#ECE8DF; --ink-2:#C2BEB4; --muted:#8F988F;
+  --accent:#7FB89F; --accent-ink:#0F1A15; --accent-soft:#223A31;
+  --gold:#D3B26F; --gold-soft:#3A3120; --blush:#D9A59B; --blush-soft:#3E2C29;
+  --good:#7FC79A; --warn:#E0AE5B; --bad:#E08A80;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--display);font-weight:500;line-height:1.1;margin:0;text-wrap:balance}
+p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+/* ---------- gate ---------- */
+#gate{min-height:100%;display:grid;place-items:center;padding:24px 16px;background:var(--bg)}
+.gate-card{width:100%;max-width:380px;text-align:center;display:grid;gap:18px}
+.monogram{width:72px;height:72px;margin:0 auto;border:1px solid var(--gold);border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:30px;font-style:italic;color:var(--gold)}
+.gate-card h1{font-size:40px;font-style:italic}
+.gate-form{display:grid;gap:10px}
+.gate-form input{padding:12px 14px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);text-align:center;letter-spacing:.2em;font-size:18px}
+.gate-form input.shake{animation:shake .35s}
+@keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.btn{padding:10px 16px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn:hover{filter:brightness(1.05)}
+.btn.ghost{background:transparent;color:var(--accent);border-color:var(--line-strong)}
+.btn.ghost:hover{background:var(--accent-soft)}
+.btn.small{padding:6px 10px;font-size:13px}
+.btn.danger{background:transparent;border-color:var(--line);color:var(--bad)}
+.linkish{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;text-underline-offset:3px;font-size:13px}
+#hint{color:var(--ink-2)}
+#gate-error{color:var(--bad);min-height:1.5em;font-size:13px}
+
+/* ---------- shell ---------- */
+#app{min-height:100%}
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar-inner{max-width:1120px;margin:0 auto;padding:12px 16px 0;display:flex;flex-direction:column;gap:8px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.brand h1{font-size:26px;font-style:italic}
+.brand h1 span{color:var(--gold)}
+.sync{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.sync .dot{width:8px;height:8px;border-radius:50%;background:var(--line-strong)}
+.sync.db .dot{background:var(--good)}
+.sync.local .dot{background:var(--warn)}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;padding:9px 12px 11px;border:0;background:none;color:var(--ink-2);border-bottom:2px solid transparent;font-weight:500;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.tab .st{width:7px;height:7px;border-radius:50%;background:var(--line-strong)}
+.tab .st.done{background:var(--good)}
+main{max-width:1120px;margin:0 auto;padding-block:24px 64px;padding-inline:16px}
+.view[hidden]{display:none}
+
+/* ---------- home ---------- */
+.hero{display:grid;gap:6px;margin-bottom:22px}
+.hero h2{font-size:clamp(32px,5vw,48px);font-style:italic}
+.hero .sub{color:var(--ink-2);font-size:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:28px}
+.stat{background:var(--surface);padding:14px 16px;display:grid;gap:2px}
+.stat .v{font-family:var(--display);font-size:30px;font-weight:600;line-height:1}
+.stat .v small{font-size:14px;font-family:var(--body);font-weight:500;color:var(--muted);margin-left:4px}
+.stat .l{font-size:12px;color:var(--muted)}
+.days{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-bottom:32px}
+.day{display:grid;gap:12px;align-content:start}
+.day-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line-strong);padding-bottom:8px}
+.day-head h3{font-size:24px}
+.day-head .date{color:var(--muted);font-size:13px}
+.slot{display:grid;grid-template-columns:72px 1fr;gap:12px}
+.slot .time{font-weight:600;color:var(--accent);padding-top:14px;font-size:13px}
+.slot .time.tbd{color:var(--muted);font-weight:500}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.card .eyebrow{margin-bottom:4px}
+.card h4{font-size:21px}
+.card .where{color:var(--ink-2);font-size:13px;margin-top:2px}
+.card .meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:13px;color:var(--ink-2)}
+.card .meta b{color:var(--ink);font-weight:600}
+.card.undecided{border-style:dashed;background:transparent;box-shadow:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{padding:5px 10px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);font-size:13px;color:var(--ink-2)}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.warnline{color:var(--warn);font-size:13px;margin-top:8px}
+
+.budget{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px}
+@media (max-width:760px){.budget{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 16px}
+.panel h3{font-size:24px;margin-bottom:12px}
+.panel .eyebrow{margin-bottom:2px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:6px 0;border-bottom:1px solid var(--line)}
+td{padding:9px 0;border-bottom:1px solid var(--line);vertical-align:top}
+td.r,th.r{text-align:right;white-space:nowrap}
+tr.total td{border-bottom:0;border-top:2px solid var(--line-strong);font-weight:700;font-size:16px;padding-top:12px}
+td .sub{display:block;color:var(--muted);font-size:12px}
+.extras{display:grid;gap:6px;margin-top:6px}
+.extra{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.extra:last-child{border-bottom:0}
+.extra label{flex:1;display:flex;align-items:center;gap:10px;cursor:pointer}
+.extra .cost{color:var(--ink-2)}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
+.progress{display:grid;gap:8px;margin-top:6px}
+.prog{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:8px 0;border-bottom:1px solid var(--line)}
+.prog:last-child{border-bottom:0}
+.prog .pill{font-size:12px;padding:2px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);white-space:nowrap;max-width:55%;overflow:hidden;text-overflow:ellipsis}
+.prog .pill.done{background:var(--accent-soft);color:var(--accent)}
+.prog button{background:none;border:0;padding:0;color:var(--ink);text-align:left;font-weight:500;text-decoration:none}
+.prog button:hover{color:var(--accent)}
+
+/* ---------- decision ---------- */
+.dhead{display:grid;gap:6px;margin-bottom:18px;max-width:64ch}
+.dhead h2{font-size:clamp(30px,4.5vw,42px);font-style:italic}
+.dhead .q{color:var(--ink-2);font-size:16px}
+.dhead .context{font-size:13px;color:var(--muted)}
+.options{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:22px}
+.opt{cursor:pointer;position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:grid;gap:10px;align-content:start;text-align:left;box-shadow:var(--shadow);transition:border-color .15s}
+.opt:hover{border-color:var(--line-strong)}
+.opt.picked{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft),var(--shadow)}
+.opt .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.opt h3{font-size:22px}
+.opt .where{color:var(--ink-2);font-size:13px}
+.opt .desc{font-size:14px;color:var(--ink-2)}
+.opt .facts{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:13px;color:var(--muted)}
+.opt .facts b{color:var(--ink);font-weight:600;display:block}
+.opt .pc{display:grid;gap:3px;font-size:13px}
+.opt .pc .p::before{content:"+ ";color:var(--good);font-weight:700}
+.opt .pc .c::before{content:"– ";color:var(--bad);font-weight:700}
+.opt .est{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:10px;margin-top:2px}
+.opt .est .v{font-family:var(--display);font-size:24px;font-weight:600}
+.opt .est .l{font-size:12px;color:var(--muted)}
+.mark{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line-strong);display:grid;place-items:center;flex:0 0 auto;color:var(--accent-ink);font-size:13px}
+.opt.picked .mark{background:var(--accent);border-color:var(--accent)}
+.opt .cap-warn{color:var(--warn);font-size:12px}
+.notes{display:grid;gap:6px;max-width:64ch}
+.notes textarea{width:100%;min-height:90px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);resize:vertical}
+.clear-pick{margin-top:12px}
+
+/* ---------- guests ---------- */
+.ghead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:16px}
+.ghead h2{font-size:clamp(30px,4.5vw,42px);font-style:italic}
+.gstats{display:flex;flex-wrap:wrap;gap:16px;font-size:14px;color:var(--ink-2)}
+.gstats b{font-family:var(--display);font-size:22px;color:var(--ink);font-weight:600;margin-right:4px}
+.gtools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.gtools input[type=search],.gtools select{padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+.gtools input[type=search]{flex:1;min-width:160px}
+.gtable-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+.gtable{min-width:720px}
+.gtable th,.gtable td{padding:9px 12px}
+.gtable tbody tr{cursor:pointer}
+.gtable tbody tr:hover{background:var(--surface-2)}
+.gtable td.name{font-weight:600}
+.status{font-size:12px;padding:2px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
+.status.invited{background:var(--accent-soft);color:var(--accent)}
+.status.maybe{background:var(--gold-soft);color:var(--gold)}
+.status.no{background:var(--blush-soft);color:var(--bad)}
+.evdots{display:flex;gap:5px}
+.evdots span{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:10px;font-weight:700;border:1px solid var(--line);color:var(--muted)}
+.evdots span.on{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent)}
+.empty{padding:36px 16px;text-align:center;color:var(--muted)}
+.gadd{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
+@media (max-width:760px){.gadd{grid-template-columns:1fr}}
+.bulk textarea{width:100%;min-height:110px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg);resize:vertical}
+.bulk .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.bulk select{padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+
+/* ---------- dialog ---------- */
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:0;width:min(520px,calc(100vw - 32px));box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(20,26,23,.45)}
+.dlg{padding:20px;display:grid;gap:14px}
+.dlg h3{font-size:26px}
+.field{display:grid;gap:4px;font-size:13px;color:var(--ink-2)}
+.field input,.field select{padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:15px;color:var(--ink)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media (max-width:480px){.grid3{grid-template-columns:1fr 1fr}}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.checks label{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.dlg-actions{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.dlg-actions .right{display:flex;gap:8px;margin-left:auto}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-card">
+    <div class="monogram">&amp;</div>
+    <div>
+      <p class="eyebrow">Planning the weekend</p>
+      <h1>Our Wedding</h1>
+    </div>
+    <form class="gate-form" id="gate-form" autocomplete="off">
+      <input id="pw" type="password" inputmode="numeric" placeholder="Password" aria-label="Password">
+      <button class="btn" type="submit">Enter</button>
+      <div id="gate-error" role="alert"></div>
+      <button class="linkish" type="button" id="hint-btn">Need a hint?</button>
+      <p id="hint" class="small" hidden></p>
+    </form>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <h1 id="brand-title">Our Wedding <span>Weekend</span></h1>
+        <div class="sync" id="sync"><span class="dot"></span><span id="sync-text">Connecting…</span></div>
+      </div>
+      <nav class="tabs" id="tabs" aria-label="Sections"></nav>
+    </div>
+  </header>
+  <main id="main"></main>
+</div>
+
+<dialog id="guest-dialog">
+  <form class="dlg" id="guest-form" method="dialog">
+    <h3 id="guest-dialog-title">Add a guest</h3>
+    <div class="field"><span>Name (or household, e.g. "The Alvarez family")</span><input id="g-name" required></div>
+    <div class="grid3">
+      <div class="field"><span>Side</span>
+        <select id="g-side"></select></div>
+      <div class="field"><span>Group</span>
+        <select id="g-group"></select></div>
+      <div class="field"><span>Head count</span><input id="g-party" type="number" min="1" max="20" value="1"></div>
+    </div>
+    <div class="field"><span>Status</span>
+      <select id="g-status">
+        <option value="invited">Inviting</option>
+        <option value="maybe">Maybe / B-list</option>
+        <option value="no">Not inviting</option>
+      </select></div>
+    <div class="field"><span>Which parts of the weekend?</span>
+      <div class="checks" id="g-events"></div></div>
+    <div class="field"><span>Notes</span><input id="g-notes" placeholder="Dietary, travel, plus-one details…"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn danger small" id="g-delete" hidden>Remove guest</button>
+      <div class="right">
+        <button type="button" class="btn ghost" id="g-cancel">Cancel</button>
+        <button type="submit" class="btn" id="g-save">Save guest</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+<div class="toast" id="toast" aria-live="polite"></div>
+
+<script>
+/* =====================================================================
+   WEDDING WEEKEND — DATA BLOCK
+   Everything below this line up to "END DATA BLOCK" is meant to be
+   edited by hand (or by Claude). The rest of the page renders from it.
+
+   HOW TO ADD AN OPTION: find the decision by its `id` in DECISIONS and
+   push a new object into its `options` array. Only `id` and `name` are
+   required. Fields:
+     id        unique slug within the decision (never reuse one that was
+               picked before, or the old pick will point at the new item)
+     name      display name
+     where     venue / neighborhood / address, shown under the name
+     desc      one or two sentences
+     time      start time, shown on the weekend itinerary ("6:30 PM")
+     duration  free text ("2 hrs")
+     fixed     flat cost in dollars (room fee, rental, offering, minimum)
+     perGuest  cost per attending guest in dollars
+     capacity  max guests; the page warns when the list exceeds it
+     pros      array of strings
+     cons      array of strings
+     link      optional URL
+   The DATE decision is special: each option has `date` (YYYY-MM-DD) and
+   `costFactor` (1.0 = normal; peak season 1.1; off season 0.9) which
+   scales the reception venue cost.
+
+   HOW TO ADD A DECISION: add an object to DECISIONS with id, title,
+   question, `eventKey` (which guest checkbox counts as attending:
+   rehearsal | welcome | mass | reception, or null for none),
+   `dayOffset` (-1 = the day before, 0 = wedding day), `order` (position
+   in the day), and `options`. Add a matching entry to EVENTS if it is a
+   new guest-facing event.
+   ===================================================================== */
+
+const CONFIG = {
+  coupleTitle: "Our Wedding",           // shown on the gate and in the header
+  password: "09102026",
+  passwordHint: "Our engagement date, as eight digits (MMDDYYYY).",
+  engagementDate: "2026-09-10",
+  sides: ["Bride's side", "Groom's side", "Both / mutual"],
+  groups: ["Immediate family", "Extended family", "Wedding party", "Close friends", "Friends", "Parents' friends", "Coworkers", "Plus-one"],
+};
+
+// Guest-facing events. `default` is whether a newly added guest is
+// assumed to attend. Rehearsal dinner defaults off (wedding party + family).
+const EVENTS = [
+  { key: "rehearsal", label: "Rehearsal dinner", short: "R", default: false },
+  { key: "welcome",   label: "Welcome party",    short: "W", default: true  },
+  { key: "mass",      label: "Mass",             short: "M", default: true  },
+  { key: "reception", label: "Reception",        short: "P", default: true  },
+];
+
+const DECISIONS = [
+  {
+    id: "date",
+    title: "The Date",
+    question: "When do we celebrate?",
+    context: "Every option is a Saturday so the weekend keeps the same shape: rehearsal dinner and welcome party on Friday, Mass and reception on Saturday.",
+    eventKey: null, dayOffset: null, order: 0,
+    options: [
+      { id: "2027-05-22", name: "Late spring", date: "2027-05-22", costFactor: 1.0,
+        desc: "Gardens in bloom, mild evenings, before summer travel season starts.",
+        pros: ["Comfortable weather for an outdoor welcome party", "Vendors still have availability"],
+        cons: ["Close to Memorial Day travel", "Graduation season for families with students"] },
+      { id: "2027-06-12", name: "Early summer", date: "2027-06-12", costFactor: 1.1,
+        desc: "Long light evenings and the classic June wedding feel.",
+        pros: ["Longest daylight for photos", "School is out for traveling families"],
+        cons: ["Peak pricing at most venues", "Hot afternoons for a 1:30 Mass"] },
+      { id: "2027-09-11", name: "One year from the engagement", date: "2027-09-11", costFactor: 1.05,
+        desc: "The Friday of this weekend is the first anniversary of the engagement, so the rehearsal dinner lands on it.",
+        pros: ["A date that already means something", "Early-fall weather, low humidity"],
+        cons: ["Popular fall weekend, book early", "Football Saturdays for some guests"] },
+      { id: "2027-10-09", name: "Fall color", date: "2027-10-09", costFactor: 1.05,
+        desc: "Peak foliage, crisp evenings, sweaters at the bonfire.",
+        pros: ["Best scenery for photos", "Cool enough for a tented reception"],
+        cons: ["Competes with other fall weddings", "Early sunset around 6:30"] },
+      { id: "2027-11-06", name: "Late fall, off-peak", date: "2027-11-06", costFactor: 0.9,
+        desc: "Quieter calendar and softer venue pricing after the fall rush.",
+        pros: ["Meaningful savings on the reception venue", "Easier hotel blocks"],
+        cons: ["Weather is a gamble", "Two weeks before Thanksgiving travel"] },
+    ],
+  },
+  {
+    id: "rehearsal",
+    title: "Rehearsal Dinner",
+    question: "Where do we gather the wedding party and family on Friday?",
+    context: "Counts only guests you have checked for the rehearsal dinner. Typically the wedding party, immediate family, and out-of-town relatives.",
+    eventKey: "rehearsal", dayOffset: -1, order: 1,
+    options: [
+      { id: "trattoria", name: "Trattoria private room", where: "Family-style Italian, downtown",
+        desc: "Long tables, shared platters, wine on the table. Warm and unfussy.",
+        time: "6:00 PM", duration: "2.5 hrs", fixed: 600, perGuest: 85, capacity: 40,
+        pros: ["Easy on out-of-town guests", "No rentals or cleanup"], cons: ["Hard cap around 40", "Room fee if under minimum"] },
+      { id: "steakhouse", name: "Steakhouse private dining", where: "Classic steakhouse near the hotel block",
+        desc: "Plated dinner, toasts between courses, a more formal tone.",
+        time: "6:30 PM", duration: "2.5 hrs", fixed: 1000, perGuest: 140, capacity: 30,
+        pros: ["Feels like an occasion", "Walkable from hotels"], cons: ["Most expensive per head", "Smallest capacity"] },
+      { id: "home-catered", name: "Catered dinner at the family home", where: "Parents' backyard, tented if needed",
+        desc: "Caterer handles food and staff; rentals cover tables, chairs, and lighting.",
+        time: "6:00 PM", duration: "3 hrs", fixed: 1500, perGuest: 55, capacity: 60,
+        pros: ["Most personal setting", "Flexible timing and headcount"], cons: ["Weather backup needed", "Someone has to host"] },
+      { id: "pizza-garden", name: "Pizza and beer garden", where: "Brewpub patio with wood-fired pizza",
+        desc: "Casual, loud, and fun. Saves the formality for Saturday.",
+        time: "6:30 PM", duration: "2 hrs", fixed: 300, perGuest: 40, capacity: 60,
+        pros: ["Cheapest by far", "Kids welcome"], cons: ["Less room for toasts", "Casual may feel too casual for grandparents"] },
+    ],
+  },
+  {
+    id: "welcome",
+    title: "Welcome Party",
+    question: "How do we welcome everyone the night before?",
+    context: "Counts guests checked for the welcome party. Usually open to the whole guest list, especially anyone traveling in.",
+    eventKey: "welcome", dayOffset: -1, order: 2,
+    options: [
+      { id: "brewery", name: "Brewery taproom buyout", where: "Local brewery, indoor and patio",
+        desc: "Open beer and wine, food trucks out front, lawn games.",
+        time: "8:30 PM", duration: "3 hrs", fixed: 2500, perGuest: 35, capacity: 200,
+        pros: ["Relaxed and easy to mingle", "Handles a big crowd"], cons: ["Loud for older guests", "Limited cocktails"] },
+      { id: "rooftop", name: "Rooftop cocktail hour", where: "Hotel rooftop bar",
+        desc: "Passed appetizers and a signature cocktail with skyline views.",
+        time: "8:30 PM", duration: "2.5 hrs", fixed: 4000, perGuest: 45, capacity: 120,
+        pros: ["Photogenic", "Upstairs from where guests are staying"], cons: ["Capacity tops out around 120", "Weather-dependent"] },
+      { id: "bonfire", name: "Backyard bonfire and food trucks", where: "Family property",
+        desc: "String lights, s'mores, a taco truck, coolers of drinks.",
+        time: "8:00 PM", duration: "3 hrs", fixed: 1800, perGuest: 28, capacity: 150,
+        pros: ["Least expensive", "Memorable and personal"], cons: ["Parking and restrooms to solve", "Rain plan needed"] },
+      { id: "hotel-tab", name: "Hosted tab at the hotel bar", where: "Hotel lobby bar",
+        desc: "No reserved space. We cover drinks for a couple of hours and let people drift in.",
+        time: "9:00 PM", duration: "2 hrs", fixed: 0, perGuest: 40, capacity: 999,
+        pros: ["Zero setup", "Guests come and go"], cons: ["No sense of occasion", "Shared with other hotel guests"] },
+    ],
+  },
+  {
+    id: "mass",
+    title: "The Mass",
+    question: "Where do we say our vows?",
+    context: "Counts guests checked for Mass. Fixed costs cover the church offering, musicians, and marriage prep where applicable.",
+    eventKey: "mass", dayOffset: 0, order: 1,
+    options: [
+      { id: "home-parish", name: "Nuptial Mass at our home parish", where: "The parish we attend",
+        desc: "Our priest, our community, the church we already know.",
+        time: "1:30 PM", duration: "1.25 hrs", fixed: 1200, perGuest: 0, capacity: 350,
+        pros: ["Most meaningful", "Easiest marriage prep coordination"], cons: ["Drive to the reception venue", "Saturday afternoon slot only"] },
+      { id: "cathedral", name: "The cathedral", where: "Downtown cathedral",
+        desc: "Grand architecture, full choir loft, room for everyone.",
+        time: "2:00 PM", duration: "1.25 hrs", fixed: 2500, perGuest: 0, capacity: 800,
+        pros: ["Unforgettable setting", "No capacity worries"], cons: ["Strict scheduling and music rules", "Higher offering"] },
+      { id: "university-chapel", name: "University chapel", where: "Campus chapel",
+        desc: "Intimate stone chapel with a strong alumni connection.",
+        time: "2:00 PM", duration: "1.25 hrs", fixed: 1800, perGuest: 0, capacity: 250,
+        pros: ["Beautiful and intimate", "Campus photos"], cons: ["Alumni requirement", "Football Saturdays block dates"] },
+      { id: "near-venue", name: "Parish near the reception venue", where: "Small parish, ten minutes from the reception",
+        desc: "Keeps the day tight and cuts shuttle time.",
+        time: "2:30 PM", duration: "1.25 hrs", fixed: 1000, perGuest: 0, capacity: 200,
+        pros: ["Short transfer for guests", "Later start"], cons: ["We do not know the priest", "Smaller sanctuary"] },
+    ],
+  },
+  {
+    id: "reception",
+    title: "The Reception",
+    question: "Where do we dance until they turn the lights on?",
+    context: "Counts guests checked for the reception. Per-guest cost covers dinner and bar; fixed cost is the venue and rentals. The date's season factor scales this venue cost.",
+    eventKey: "reception", dayOffset: 0, order: 2,
+    options: [
+      { id: "country-club", name: "Country club ballroom", where: "Members' club with terrace",
+        desc: "Full-service venue: catering, bar, tables, linens, staff, and a rain-proof plan built in.",
+        time: "5:30 PM", duration: "5.5 hrs", fixed: 8000, perGuest: 165, capacity: 220,
+        pros: ["Everything included", "Zero rental logistics"], cons: ["Ballroom look", "Cutoff at 11 PM"] },
+      { id: "estate-tent", name: "Historic estate, tented", where: "Estate grounds with sailcloth tent",
+        desc: "Garden ceremony feel, cocktail hour on the lawn, dinner and dancing under the tent.",
+        time: "5:00 PM", duration: "6 hrs", fixed: 22000, perGuest: 150, capacity: 300,
+        pros: ["Stunning photos", "Room for the whole list"], cons: ["Tent, floor, restrooms, and generator add up", "Weather anxiety"] },
+      { id: "loft", name: "Downtown loft", where: "Converted warehouse, exposed brick",
+        desc: "Industrial space, our choice of caterer, walking distance from hotels.",
+        time: "6:00 PM", duration: "5 hrs", fixed: 12000, perGuest: 175, capacity: 180,
+        pros: ["Late-night city energy", "Walkable for guests"], cons: ["Capacity 180", "Bring-your-own everything"] },
+      { id: "vineyard", name: "Vineyard barn", where: "Winery an hour out of town",
+        desc: "Rows of vines, a restored barn, house wine included.",
+        time: "5:00 PM", duration: "6 hrs", fixed: 15000, perGuest: 140, capacity: 200,
+        pros: ["Destination feel", "Wine included"], cons: ["Shuttles required", "Long day for older guests"] },
+      { id: "family-tent", name: "Tent on the family property", where: "Family land",
+        desc: "Build the whole thing ourselves: tent, floor, lighting, restrooms, power, caterer.",
+        time: "5:30 PM", duration: "6 hrs", fixed: 18000, perGuest: 130, capacity: 250,
+        pros: ["Completely ours", "No venue curfew"], cons: ["Heaviest logistics", "Everything is a separate vendor"] },
+    ],
+  },
+];
+
+// Other budget lines, toggled on the home page. `on` is the default.
+const EXTRAS = [
+  { id: "photo",   name: "Photography",             cost: 6000, on: true  },
+  { id: "video",   name: "Videography",             cost: 3500, on: false },
+  { id: "flowers", name: "Flowers and decor",       cost: 5000, on: true  },
+  { id: "band",    name: "Live band",               cost: 9000, on: false },
+  { id: "dj",      name: "DJ",                      cost: 2500, on: true  },
+  { id: "attire",  name: "Attire and alterations",  cost: 4500, on: true  },
+  { id: "paper",   name: "Invitations and paper",   cost: 1200, on: true  },
+  { id: "beauty",  name: "Hair and makeup",         cost: 1200, on: true  },
+  { id: "rings",   name: "Wedding bands",           cost: 3000, on: true  },
+  { id: "shuttle", name: "Guest shuttles",          cost: 1500, on: false },
+  { id: "welcome-bags", name: "Hotel welcome bags", cost: 800,  on: false },
+  { id: "planner", name: "Day-of coordinator",      cost: 2500, on: false },
+];
+/* ===================== END DATA BLOCK ===================== */
+
+
+/* ---------------- state + storage ---------------- */
+const state = {
+  plan: { picks: {}, extras: null, notes: {} },
+  guests: [],           // [{id, name, side, group, party, status, events:{}, notes, createdAt}]
+  storage: "loading",   // loading | db | local
+  route: "home",
+  filter: { q: "", status: "all", side: "all" },
+};
+let db = null;
+const LS_PLAN = "ww.plan", LS_GUESTS = "ww.guests";
+const lsGet = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+function defaultExtras() { const o = {}; EXTRAS.forEach(e => o[e.id] = e.on); return o; }
+function normalizePlan(p) {
+  p = p || {};
+  return { picks: p.picks || {}, extras: p.extras || defaultExtras(), notes: p.notes || {} };
+}
+
+let planWriteTimer = null;
+function savePlan() {
+  lsSet(LS_PLAN, state.plan);
+  if (!db) return;
+  clearTimeout(planWriteTimer);
+  planWriteTimer = setTimeout(async () => {
+    try { await db.doc("plan/current").set(state.plan); }
+    catch (e) { toast("Could not save the plan: " + (e.message || e.code)); }
+  }, 350);
+}
+async function saveGuest(g) {
+  if (db) {
+    try { await db.collection("guests").doc(g.id).set(g); }
+    catch (e) { toast("Could not save guest: " + (e.message || e.code)); }
+  } else {
+    const i = state.guests.findIndex(x => x.id === g.id);
+    if (i >= 0) state.guests[i] = g; else state.guests.push(g);
+    lsSet(LS_GUESTS, state.guests); render();
+  }
+}
+async function deleteGuest(id) {
+  if (db) {
+    try { await db.collection("guests").doc(id).delete(); }
+    catch (e) { toast("Could not remove guest: " + (e.message || e.code)); }
+  } else {
+    state.guests = state.guests.filter(g => g.id !== id);
+    lsSet(LS_GUESTS, state.guests); render();
+  }
+}
+const uid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
+
+async function connect() {
+  // Local copy first so the page is useful immediately.
+  state.plan = normalizePlan(lsGet(LS_PLAN, null));
+  state.guests = lsGet(LS_GUESTS, []);
+  render();
+  let handle = null;
+  try { handle = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch { handle = null; }
+  if (!handle) { state.storage = "local"; renderSync(); return; }
+  db = handle;
+  state.storage = "db";
+  db.doc("plan/current").onSnapshot(snap => {
+    if (snap.exists) state.plan = normalizePlan(snap.data());
+    else if (Object.keys(state.plan.picks).length) savePlan(); // migrate a local plan on first connect
+    render();
+  }, err => { state.storage = "local"; db = null; toast("Live sync lost, saving on this device."); renderSync(); });
+  db.collection("guests").orderBy("name").onSnapshot(snap => {
+    state.guests = snap.docs.map(d => d.data()).filter(Boolean);
+    render();
+  }, err => { state.storage = "local"; db = null; renderSync(); });
+  renderSync();
+}
+
+/* ---------------- derived numbers ---------------- */
+const fmt$ = n => "$" + Math.round(n).toLocaleString("en-US");
+const byId = (arr, id) => arr.find(x => x.id === id);
+const decision = id => byId(DECISIONS, id);
+function pickedOption(d) { const oid = state.plan.picks[d.id]; return oid ? byId(d.options, oid) : null; }
+function invitedGuests() { return state.guests.filter(g => g.status === "invited"); }
+function headcount(list) { return list.reduce((s, g) => s + (Number(g.party) || 1), 0); }
+function attendees(eventKey) {
+  if (!eventKey) return invitedGuests();
+  return invitedGuests().filter(g => g.events && g.events[eventKey]);
+}
+function dateFactor() { const o = pickedOption(decision("date")); return o && o.costFactor ? o.costFactor : 1; }
+function optionCost(d, o, n) {
+  const fixed = (o.fixed || 0) * (d.id === "reception" ? dateFactor() : 1);
+  return fixed + (o.perGuest || 0) * n;
+}
+function budget() {
+  const lines = [];
+  let total = 0;
+  DECISIONS.forEach(d => {
+    if (!d.eventKey) return;
+    const o = pickedOption(d);
+    const n = headcount(attendees(d.eventKey));
+    if (!o) { lines.push({ d, o: null, n, cost: 0 }); return; }
+    const cost = optionCost(d, o, n);
+    lines.push({ d, o, n, cost }); total += cost;
+  });
+  let extras = 0;
+  EXTRAS.forEach(e => { if (state.plan.extras[e.id]) extras += e.cost; });
+  return { lines, extras, total: total + extras };
+}
+function weddingDate() { const o = pickedOption(decision("date")); return o && o.date ? new Date(o.date + "T12:00:00") : null; }
+function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+const longDate = d => d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+const shortDate = d => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const weekday = d => d.toLocaleDateString("en-US", { weekday: "long" });
+function daysUntil(d) { const t = new Date(); t.setHours(12, 0, 0, 0); return Math.round((d - t) / 86400000); }
+function timeMinutes(t) { // "6:30 PM" -> minutes, for sorting
+  if (!t) return 9999; const m = /(\d+)(?::(\d+))?\s*(AM|PM)?/i.exec(t); if (!m) return 9999;
+  let h = +m[1] % 12; if ((m[3] || "").toUpperCase() === "PM") h += 12; return h * 60 + (+m[2] || 0);
+}
+
+/* ---------------- rendering ---------------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function renderSync() {
+  const el = $("#sync"); if (!el) return;
+  el.className = "sync " + state.storage;
+  $("#sync-text").textContent = state.storage === "db" ? "Shared, saves for both of us" : state.storage === "local" ? "Saved on this device only" : "Connecting…";
+}
+
+function renderTabs() {
+  const tabs = [{ id: "home", label: "The Weekend" }, ...DECISIONS.map(d => ({ id: d.id, label: d.title, done: !!pickedOption(d) })), { id: "guests", label: "Guests", count: headcount(invitedGuests()) }];
+  $("#tabs").innerHTML = tabs.map(t => `<button class="tab ${state.route === t.id ? "active" : ""}" data-route="${t.id}" role="tab" aria-selected="${state.route === t.id}">
+      ${t.done !== undefined ? `<span class="st ${t.done ? "done" : ""}"></span>` : ""}${esc(t.label)}${t.count !== undefined ? ` <span class="muted num">${t.count}</span>` : ""}</button>`).join("");
+}
+
+function render() {
+  if ($("#app").hidden) return;
+  renderTabs(); renderSync();
+  const main = $("#main");
+  if (state.route === "home") main.innerHTML = renderHome();
+  else if (state.route === "guests") main.innerHTML = renderGuests();
+  else { const d = decision(state.route); main.innerHTML = d ? renderDecision(d) : renderHome(); }
+  bindMain();
+}
+
+function renderHome() {
+  const date = weddingDate();
+  const b = budget();
+  const invited = headcount(invitedGuests());
+  const maybe = headcount(state.guests.filter(g => g.status === "maybe"));
+  const decided = DECISIONS.filter(d => pickedOption(d)).length;
+  const dayBefore = date ? addDays(date, -1) : null;
+
+  const slotsFor = off => DECISIONS.filter(d => d.dayOffset === off).sort((a, b) => (a.order - b.order) || (timeMinutes(pickedOption(a)?.time) - timeMinutes(pickedOption(b)?.time)))
+    .map(d => renderSlot(d)).join("");
+
+  return `
+  <section class="hero">
+    <p class="eyebrow">${date ? `${daysUntil(date)} days away` : "Date not chosen yet"}</p>
+    <h2>${date ? longDate(date) : "A weekend, sometime next year"}</h2>
+    <p class="sub">${decided} of ${DECISIONS.length} decisions made. ${invited ? `${invited} people on the invite list${maybe ? `, ${maybe} more on the maybe list` : ""}.` : "The guest list is empty so far."}</p>
+    ${!date ? `<div class="chips">${decision("date").options.map(x => `<button class="chip" data-pick="date" data-option="${x.id}">${esc(x.name)} · ${shortDate(new Date(x.date + "T12:00:00"))}</button>`).join("")}<button class="chip" data-route="date">Compare dates →</button></div>` : ""}
+  </section>
+  <div class="stats">
+    <div class="stat"><span class="v num">${invited}</span><span class="l">Guests inviting</span></div>
+    <div class="stat"><span class="v num">${headcount(attendees("reception"))}</span><span class="l">At the reception</span></div>
+    <div class="stat"><span class="v num">${fmt$(b.total)}</span><span class="l">Estimated budget</span></div>
+    <div class="stat"><span class="v num">${invited ? fmt$(b.total / invited) : "—"}</span><span class="l">Per invited guest</span></div>
+  </div>
+
+  <div class="days">
+    <div class="day">
+      <div class="day-head"><h3>${dayBefore ? weekday(dayBefore) : "The day before"}</h3><span class="date">${dayBefore ? shortDate(dayBefore) : "Pick a date"}</span></div>
+      ${slotsFor(-1)}
+    </div>
+    <div class="day">
+      <div class="day-head"><h3>${date ? weekday(date) : "The wedding day"}</h3><span class="date">${date ? shortDate(date) : "Pick a date"}</span></div>
+      ${slotsFor(0)}
+    </div>
+  </div>
+
+  <div class="budget">
+    <div class="panel">
+      <p class="eyebrow">Estimate</p>
+      <h3>Where the money goes</h3>
+      <table>
+        <thead><tr><th>Event</th><th class="r">Guests</th><th class="r">Cost</th></tr></thead>
+        <tbody>
+        ${b.lines.map(l => `<tr>
+          <td>${esc(l.d.title)}${l.o ? `<span class="sub">${esc(l.o.name)}${(l.o.fixed || 0) ? ` · ${fmt$((l.o.fixed || 0) * (l.d.id === "reception" ? dateFactor() : 1))} fixed` : ""}${l.o.perGuest ? ` + ${fmt$(l.o.perGuest)}/guest` : ""}</span>` : `<span class="sub">Not decided</span>`}</td>
+          <td class="r num">${l.n}</td>
+          <td class="r num">${l.o ? fmt$(l.cost) : "—"}</td></tr>`).join("")}
+        <tr><td>Everything else<span class="sub">${EXTRAS.filter(e => state.plan.extras[e.id]).length} items checked at right</span></td><td class="r"></td><td class="r num">${fmt$(b.extras)}</td></tr>
+        <tr class="total"><td>Estimated total</td><td></td><td class="r num">${fmt$(b.total)}</td></tr>
+        </tbody>
+      </table>
+      ${dateFactor() !== 1 ? `<p class="small muted" style="margin-top:10px">Reception venue cost scaled by ${dateFactor()}× for the chosen season.</p>` : ""}
+    </div>
+    <div style="display:grid;gap:20px;align-content:start">
+      <div class="panel">
+        <p class="eyebrow">Include in the estimate</p>
+        <h3>Everything else</h3>
+        <div class="extras">
+          ${EXTRAS.map(e => `<div class="extra"><label><input type="checkbox" id="extra-${e.id}" data-extra="${e.id}" ${state.plan.extras[e.id] ? "checked" : ""}> ${esc(e.name)}</label><span class="cost num">${fmt$(e.cost)}</span></div>`).join("")}
+        </div>
+      </div>
+      <div class="panel">
+        <p class="eyebrow">Progress</p>
+        <h3>Decisions</h3>
+        <div class="progress">
+          ${DECISIONS.map(d => { const o = pickedOption(d); return `<div class="prog"><button data-route="${d.id}">${esc(d.title)}</button><span class="pill ${o ? "done" : ""}">${o ? esc(o.name) : "Open"}</span></div>`; }).join("")}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderSlot(d) {
+  const o = pickedOption(d);
+  if (!o) {
+    return `<div class="slot"><div class="time tbd">—</div>
+      <div class="card undecided"><p class="eyebrow">${esc(d.title)}</p><h4>Still deciding</h4>
+      <div class="chips">${d.options.slice(0, 4).map(x => `<button class="chip" data-pick="${d.id}" data-option="${x.id}">${esc(x.name)}</button>`).join("")}<button class="chip" data-route="${d.id}">All options →</button></div></div></div>`;
+  }
+  const n = headcount(attendees(d.eventKey));
+  const over = o.capacity && n > o.capacity;
+  return `<div class="slot"><div class="time">${esc(o.time || "")}</div>
+    <div class="card"><p class="eyebrow">${esc(d.title)}</p><h4>${esc(o.name)}</h4>
+    ${o.where ? `<p class="where">${esc(o.where)}</p>` : ""}
+    <div class="meta"><span><b class="num">${n}</b> guests</span>${o.duration ? `<span>${esc(o.duration)}</span>` : ""}<span><b class="num">${fmt$(optionCost(d, o, n))}</b> est.</span></div>
+    ${over ? `<p class="warnline">Over capacity: ${o.capacity} max, ${n} on the list.</p>` : ""}
+    </div></div>`;
+}
+
+function renderDecision(d) {
+  const picked = state.plan.picks[d.id];
+  const n = d.eventKey ? headcount(attendees(d.eventKey)) : 0;
+  return `
+  <section class="dhead">
+    <p class="eyebrow">Decision</p>
+    <h2>${esc(d.title)}</h2>
+    <p class="q">${esc(d.question)}</p>
+    ${d.context ? `<p class="context">${esc(d.context)}${d.eventKey ? ` Right now that is <b class="num">${n}</b> people.` : ""}</p>` : ""}
+  </section>
+  <div class="options">
+    ${d.options.map(o => {
+      const isPicked = picked === o.id;
+      const cost = d.eventKey ? optionCost(d, o, n) : null;
+      const over = o.capacity && n > o.capacity;
+      const dateObj = o.date ? new Date(o.date + "T12:00:00") : null;
+      return `<div class="opt ${isPicked ? "picked" : ""}" data-pick="${d.id}" data-option="${o.id}" role="button" tabindex="0" aria-pressed="${isPicked}">
+        <div class="top"><div><h3>${esc(o.name)}</h3>${o.where ? `<p class="where">${esc(o.where)}</p>` : ""}${dateObj ? `<p class="where">${longDate(dateObj)}</p>` : ""}</div><span class="mark">${isPicked ? "✓" : ""}</span></div>
+        ${o.desc ? `<p class="desc">${esc(o.desc)}</p>` : ""}
+        <div class="facts">
+          ${o.time ? `<div><b>${esc(o.time)}</b>Start${o.duration ? ` · ${esc(o.duration)}` : ""}</div>` : ""}
+          ${o.capacity && o.capacity < 999 ? `<div><b class="num">${o.capacity}</b>Capacity</div>` : ""}
+          ${o.fixed ? `<div><b class="num">${fmt$(o.fixed)}</b>Fixed</div>` : ""}
+          ${o.perGuest ? `<div><b class="num">${fmt$(o.perGuest)}</b>Per guest</div>` : ""}
+          ${o.costFactor ? `<div><b class="num">${o.costFactor}×</b>Venue season factor</div>` : ""}
+          ${dateObj ? `<div><b class="num">${daysUntil(dateObj)}</b>Days from today</div>` : ""}
+        </div>
+        ${(o.pros || o.cons) ? `<div class="pc">${(o.pros || []).map(p => `<span class="p">${esc(p)}</span>`).join("")}${(o.cons || []).map(c => `<span class="c">${esc(c)}</span>`).join("")}</div>` : ""}
+        ${over ? `<p class="cap-warn">Over capacity for the current list (${n}).</p>` : ""}
+        ${cost !== null ? `<div class="est"><span class="l">For ${n} guests</span><span class="v num">${fmt$(cost)}</span></div>` : ""}
+        ${o.link ? `<a href="${esc(o.link)}" target="_blank" rel="noopener" class="linkish" onclick="event.stopPropagation()">Website</a>` : ""}
+      </div>`;
+    }).join("")}
+  </div>
+  <div class="notes">
+    <label class="eyebrow" for="note-${d.id}">Our notes on this decision</label>
+    <textarea id="note-${d.id}" data-note="${d.id}" placeholder="Quotes, contacts, things to ask the venue…">${esc(state.plan.notes[d.id] || "")}</textarea>
+  </div>
+  ${picked ? `<button class="btn ghost small clear-pick" data-clear="${d.id}">Un-pick and leave this open</button>` : ""}`;
+}
+
+function renderGuests() {
+  const f = state.filter;
+  const q = f.q.trim().toLowerCase();
+  let list = state.guests.slice().sort((a, b) => a.name.localeCompare(b.name));
+  if (q) list = list.filter(g => (g.name + " " + (g.notes || "") + " " + (g.group || "")).toLowerCase().includes(q));
+  if (f.status !== "all") list = list.filter(g => g.status === f.status);
+  if (f.side !== "all") list = list.filter(g => g.side === f.side);
+  const inv = invitedGuests();
+  return `
+  <div class="ghead">
+    <div><p class="eyebrow">Guest list</p><h2>Who we celebrate with</h2></div>
+    <div class="gstats">
+      <span><b class="num">${headcount(inv)}</b>inviting</span>
+      <span><b class="num">${headcount(state.guests.filter(g => g.status === "maybe"))}</b>maybe</span>
+      ${EVENTS.map(e => `<span><b class="num">${headcount(attendees(e.key))}</b>${esc(e.label.toLowerCase())}</span>`).join("")}
+    </div>
+  </div>
+  <div class="gtools">
+    <input type="search" id="g-search" placeholder="Search names, groups, notes" value="${esc(f.q)}" aria-label="Search guests">
+    <select id="g-filter-status" aria-label="Filter by status"><option value="all" ${f.status === "all" ? "selected" : ""}>All statuses</option><option value="invited" ${f.status === "invited" ? "selected" : ""}>Inviting</option><option value="maybe" ${f.status === "maybe" ? "selected" : ""}>Maybe</option><option value="no" ${f.status === "no" ? "selected" : ""}>Not inviting</option></select>
+    <select id="g-filter-side" aria-label="Filter by side"><option value="all">All sides</option>${CONFIG.sides.map(s => `<option value="${esc(s)}" ${f.side === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
+    <button class="btn" id="g-add">Add guest</button>
+  </div>
+  <div class="gtable-wrap">
+    ${list.length ? `<table class="gtable">
+      <thead><tr><th>Name</th><th>Side</th><th>Group</th><th class="r">Heads</th><th>Status</th><th>Events</th></tr></thead>
+      <tbody>${list.map(g => `<tr data-guest="${g.id}" tabindex="0">
+        <td class="name">${esc(g.name)}${g.notes ? `<span class="sub small muted" style="display:block;font-weight:400">${esc(g.notes)}</span>` : ""}</td>
+        <td>${esc(g.side || "")}</td><td>${esc(g.group || "")}</td><td class="r num">${Number(g.party) || 1}</td>
+        <td><span class="status ${esc(g.status)}">${g.status === "invited" ? "Inviting" : g.status === "maybe" ? "Maybe" : "Not inviting"}</span></td>
+        <td><div class="evdots">${EVENTS.map(e => `<span class="${g.events && g.events[e.key] ? "on" : ""}" title="${esc(e.label)}">${e.short}</span>`).join("")}</div></td>
+      </tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${state.guests.length ? "No guests match that filter." : "No guests yet. Add one at a time, or paste a whole list below."}</div>`}
+  </div>
+  <div class="gadd">
+    <div class="panel bulk">
+      <p class="eyebrow">Quick add</p>
+      <h3>Paste a list</h3>
+      <p class="small muted" style="margin-bottom:8px">One guest or household per line. Add a number after a comma for head count, e.g. <code>The Nguyen family, 4</code>.</p>
+      <textarea id="bulk-text" placeholder="Aunt Carol&#10;Sam &amp; Priya Patel, 2&#10;The Nguyen family, 4"></textarea>
+      <div class="row">
+        <select id="bulk-side">${CONFIG.sides.map(s => `<option>${esc(s)}</option>`).join("")}</select>
+        <select id="bulk-group">${CONFIG.groups.map(s => `<option>${esc(s)}</option>`).join("")}</select>
+        <select id="bulk-status"><option value="invited">Inviting</option><option value="maybe">Maybe</option></select>
+        <button class="btn ghost" id="bulk-add">Add these guests</button>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="eyebrow">Legend</p>
+      <h3>Event letters</h3>
+      <div class="progress">${EVENTS.map(e => `<div class="prog"><span><span class="evdots" style="display:inline-flex;vertical-align:middle;margin-right:8px"><span class="on">${e.short}</span></span>${esc(e.label)}</span><span class="pill">${e.default ? "on by default" : "off by default"}</span></div>`).join("")}</div>
+      <p class="small muted" style="margin-top:10px">Click any guest to change which events they are part of. Only guests marked "Inviting" count toward headcounts and the budget.</p>
+    </div>
+  </div>`;
+}
+
+/* ---------------- events ---------------- */
+function go(route) { state.route = route; try { location.hash = route; } catch {} render(); window.scrollTo({ top: 0 }); }
+function pick(did, oid) {
+  if (state.plan.picks[did] === oid) return;
+  state.plan.picks[did] = oid; savePlan(); render();
+  const d = decision(did), o = byId(d.options, oid);
+  toast(`${d.title}: ${o.name}`);
+}
+function bindMain() {
+  const main = $("#main");
+  main.querySelectorAll("[data-route]").forEach(b => b.addEventListener("click", () => go(b.dataset.route)));
+  main.querySelectorAll("[data-pick]").forEach(b => { b.addEventListener("click", () => pick(b.dataset.pick, b.dataset.option)); b.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(b.dataset.pick, b.dataset.option); } }); });
+  main.querySelectorAll("[data-clear]").forEach(b => b.addEventListener("click", () => { delete state.plan.picks[b.dataset.clear]; savePlan(); render(); }));
+  main.querySelectorAll("[data-extra]").forEach(c => c.addEventListener("change", () => { state.plan.extras[c.dataset.extra] = c.checked; savePlan(); render(); }));
+  main.querySelectorAll("[data-note]").forEach(t => {
+    let timer; t.addEventListener("input", () => { state.plan.notes[t.dataset.note] = t.value; clearTimeout(timer); timer = setTimeout(savePlan, 500); });
+  });
+  const s = $("#g-search"); if (s) s.addEventListener("input", () => { state.filter.q = s.value; const pos = s.selectionStart; render(); const s2 = $("#g-search"); s2.focus(); s2.setSelectionRange(pos, pos); });
+  const fs = $("#g-filter-status"); if (fs) fs.addEventListener("change", () => { state.filter.status = fs.value; render(); });
+  const fd = $("#g-filter-side"); if (fd) fd.addEventListener("change", () => { state.filter.side = fd.value; render(); });
+  const add = $("#g-add"); if (add) add.addEventListener("click", () => openGuest(null));
+  main.querySelectorAll("[data-guest]").forEach(r => {
+    const open = () => openGuest(byId(state.guests, r.dataset.guest));
+    r.addEventListener("click", open); r.addEventListener("keydown", e => { if (e.key === "Enter") open(); });
+  });
+  const bulk = $("#bulk-add"); if (bulk) bulk.addEventListener("click", bulkAdd);
+}
+
+async function bulkAdd() {
+  const lines = $("#bulk-text").value.split("\n").map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return;
+  const side = $("#bulk-side").value, group = $("#bulk-group").value, status = $("#bulk-status").value;
+  const events = {}; EVENTS.forEach(e => events[e.key] = e.default);
+  const added = [];
+  for (const line of lines) {
+    const m = /^(.*?)(?:,\s*(\d+))?$/.exec(line);
+    const g = { id: uid(), name: (m[1] || line).trim(), side, group, party: Math.max(1, +m[2] || 1), status, events: { ...events }, notes: "", createdAt: Date.now() };
+    added.push(g);
+  }
+  if (db) { for (const g of added) await saveGuest(g); }
+  else { state.guests.push(...added); lsSet(LS_GUESTS, state.guests); render(); }
+  toast(`Added ${added.length} ${added.length === 1 ? "guest" : "guests"}`);
+}
+
+let editing = null;
+function openGuest(g) {
+  editing = g;
+  $("#guest-dialog-title").textContent = g ? "Edit guest" : "Add a guest";
+  $("#g-side").innerHTML = CONFIG.sides.map(s => `<option>${esc(s)}</option>`).join("");
+  $("#g-group").innerHTML = CONFIG.groups.map(s => `<option>${esc(s)}</option>`).join("");
+  $("#g-events").innerHTML = EVENTS.map(e => `<label><input type="checkbox" id="g-ev-${e.key}" data-ev="${e.key}" ${(g ? g.events && g.events[e.key] : e.default) ? "checked" : ""}> ${esc(e.label)}</label>`).join("");
+  $("#g-name").value = g ? g.name : "";
+  $("#g-side").value = g ? g.side : CONFIG.sides[0];
+  $("#g-group").value = g ? g.group : CONFIG.groups[0];
+  $("#g-party").value = g ? (g.party || 1) : 1;
+  $("#g-status").value = g ? g.status : "invited";
+  $("#g-notes").value = g ? (g.notes || "") : "";
+  $("#g-delete").hidden = !g;
+  $("#g-save").textContent = g ? "Save changes" : "Add guest";
+  $("#guest-dialog").showModal();
+  setTimeout(() => $("#g-name").focus(), 30);
+}
+$("#g-cancel").addEventListener("click", () => $("#guest-dialog").close());
+$("#g-delete").addEventListener("click", async () => {
+  if (!editing) return;
+  if (!confirm(`Remove ${editing.name} from the list?`)) return;
+  $("#guest-dialog").close(); await deleteGuest(editing.id); toast("Guest removed");
+});
+$("#guest-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = $("#g-name").value.trim(); if (!name) return;
+  const events = {}; EVENTS.forEach(ev => events[ev.key] = $("#g-ev-" + ev.key).checked);
+  const g = { id: editing ? editing.id : uid(), name, side: $("#g-side").value, group: $("#g-group").value,
+    party: Math.max(1, +$("#g-party").value || 1), status: $("#g-status").value, events, notes: $("#g-notes").value.trim(),
+    createdAt: editing ? (editing.createdAt || Date.now()) : Date.now() };
+  $("#guest-dialog").close();
+  await saveGuest(g); toast(editing ? "Guest updated" : "Guest added");
+});
+document.getElementById("tabs").addEventListener("click", e => { const b = e.target.closest("[data-route]"); if (b) go(b.dataset.route); });
+
+let toastTimer;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2200); }
+
+/* ---------------- gate ---------------- */
+function unlock() {
+  $("#gate").hidden = true; $("#app").hidden = false;
+  const h = (location.hash || "").slice(1);
+  state.route = h && (h === "home" || h === "guests" || decision(h)) ? h : "home";
+  connect();
+}
+$("#hint-btn").addEventListener("click", () => { const h = $("#hint"); h.hidden = false; h.textContent = CONFIG.passwordHint; });
+$("#gate-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = $("#pw").value.replace(/\D/g, "");
+  if (v === CONFIG.password) { try { sessionStorage.setItem("ww.unlocked", "1"); } catch {} unlock(); }
+  else { $("#gate-error").textContent = "That is not it. Try the hint."; const i = $("#pw"); i.classList.remove("shake"); void i.offsetWidth; i.classList.add("shake"); i.select(); }
+});
+window.addEventListener("hashchange", () => { const h = location.hash.slice(1); if (!$("#app").hidden && h && h !== state.route && (h === "home" || h === "guests" || decision(h))) { state.route = h; render(); } });
+document.querySelector("#gate h1").textContent = CONFIG.coupleTitle;
+document.querySelector("#brand-title").innerHTML = esc(CONFIG.coupleTitle) + " <span>Weekend</span>";
+(function boot() { let ok = false; try { ok = sessionStorage.getItem("ww.unlocked") === "1"; } catch {} if (ok) unlock(); else $("#pw").focus(); })();
+</script>
+</body>
+</html>
