@@ -320,7 +320,7 @@ dialog::backdrop{background:rgba(20,26,23,.45)}
 
 const CONFIG = {
   coupleTitle: "Our Wedding",           // shown on the gate and in the header
-  password: "09102026",
+  // The password itself is checked by the server (SITE_PASSWORD env var).
   passwordHint: "Our engagement date, as eight digits (MMDDYYYY).",
   engagementDate: "2026-09-10",
   sides: ["Bride's side", "Groom's side", "Both / mutual"],
@@ -492,16 +492,13 @@ const EXTRAS = [
 
 /* ---------------- state + storage ---------------- */
 const state = {
-  plan: { picks: {}, extras: null, notes: {} },
+  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {} },
   guests: [],           // [{id, name, side, group, party, status, events:{}, notes, createdAt}]
-  storage: "loading",   // loading | db | local
+  storage: "loading",   // loading | server | offline
   route: "home",
   filter: { q: "", status: "all", side: "all" },
 };
-let db = null;
-const LS_PLAN = "ww.plan", LS_GUESTS = "ww.guests";
-const lsGet = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
-const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const uid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
 
 function defaultExtras() { const o = {}; EXTRAS.forEach(e => o[e.id] = e.on); return o; }
 function normalizePlan(p) {
@@ -509,57 +506,61 @@ function normalizePlan(p) {
   return { picks: p.picks || {}, extras: p.extras || defaultExtras(), notes: p.notes || {} };
 }
 
-let planWriteTimer = null;
+/* API. Every call returns the full shared state, which we apply. */
+let serverVersion = 0, planWriteTimer = null, planDirty = false;
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined, credentials: "same-origin" });
+  if (r.status === 401) { lock(); throw new Error("locked"); }
+  if (!r.ok) { let m = "Request failed"; try { m = (await r.json()).error || m; } catch {} throw new Error(m); }
+  return r.json();
+}
+function applyState(st, { force = false } = {}) {
+  if (!st) return;
+  // Do not yank the page out from under someone who is mid-edit.
+  const busy = document.getElementById("guest-dialog").open || (document.activeElement && /^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName) && document.activeElement.id !== "g-search");
+  if (busy && !force) return;
+  serverVersion = st.version || 0;
+  if (!planDirty) state.plan = normalizePlan(st.plan); // keep local picks while a write is pending
+  state.guests = Array.isArray(st.guests) ? st.guests : [];
+  state.storage = "server";
+  render();
+}
+
 function savePlan() {
-  lsSet(LS_PLAN, state.plan);
-  if (!db) return;
+  planDirty = true;
   clearTimeout(planWriteTimer);
   planWriteTimer = setTimeout(async () => {
-    try { await db.doc("plan/current").set(state.plan); }
-    catch (e) { toast("Could not save the plan: " + (e.message || e.code)); }
-  }, 350);
+    const sent = JSON.stringify(state.plan);
+    try {
+      const st = await api("PUT", "/api/plan", state.plan);
+      serverVersion = st.version || serverVersion;
+      if (JSON.stringify(state.plan) === sent) planDirty = false; // nothing changed while in flight
+      else savePlan();
+    }
+    catch (e) { planDirty = false; if (e.message !== "locked") toast("Could not save: " + e.message); }
+  }, 300);
 }
-async function saveGuest(g) {
-  if (db) {
-    try { await db.collection("guests").doc(g.id).set(g); }
-    catch (e) { toast("Could not save guest: " + (e.message || e.code)); }
-  } else {
-    const i = state.guests.findIndex(x => x.id === g.id);
-    if (i >= 0) state.guests[i] = g; else state.guests.push(g);
-    lsSet(LS_GUESTS, state.guests); render();
-  }
+async function saveGuests(list) {
+  try { applyState(await api("PUT", "/api/guests", list), { force: true }); }
+  catch (e) { if (e.message !== "locked") toast("Could not save guest: " + e.message); }
 }
+const saveGuest = g => saveGuests([g]);
 async function deleteGuest(id) {
-  if (db) {
-    try { await db.collection("guests").doc(id).delete(); }
-    catch (e) { toast("Could not remove guest: " + (e.message || e.code)); }
-  } else {
-    state.guests = state.guests.filter(g => g.id !== id);
-    lsSet(LS_GUESTS, state.guests); render();
-  }
+  try { applyState(await api("DELETE", "/api/guests/" + encodeURIComponent(id)), { force: true }); }
+  catch (e) { if (e.message !== "locked") toast("Could not remove guest: " + e.message); }
 }
-const uid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
 
-async function connect() {
-  // Local copy first so the page is useful immediately.
-  state.plan = normalizePlan(lsGet(LS_PLAN, null));
-  state.guests = lsGet(LS_GUESTS, []);
+let pollTimer = null;
+async function refresh() {
+  try { const st = await api("GET", "/api/state"); if ((st.version || 0) !== serverVersion) applyState(st); state.storage = "server"; renderSync(); }
+  catch (e) { if (e.message !== "locked") { state.storage = "offline"; renderSync(); } }
+}
+function connect() {
   render();
-  let handle = null;
-  try { handle = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch { handle = null; }
-  if (!handle) { state.storage = "local"; renderSync(); return; }
-  db = handle;
-  state.storage = "db";
-  db.doc("plan/current").onSnapshot(snap => {
-    if (snap.exists) state.plan = normalizePlan(snap.data());
-    else if (Object.keys(state.plan.picks).length) savePlan(); // migrate a local plan on first connect
-    render();
-  }, err => { state.storage = "local"; db = null; toast("Live sync lost, saving on this device."); renderSync(); });
-  db.collection("guests").orderBy("name").onSnapshot(snap => {
-    state.guests = snap.docs.map(d => d.data()).filter(Boolean);
-    render();
-  }, err => { state.storage = "local"; db = null; renderSync(); });
-  renderSync();
+  refresh();
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 8000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(); });
 }
 
 /* ---------------- derived numbers ---------------- */
@@ -611,7 +612,7 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&a
 function renderSync() {
   const el = $("#sync"); if (!el) return;
   el.className = "sync " + state.storage;
-  $("#sync-text").textContent = state.storage === "db" ? "Shared, saves for both of us" : state.storage === "local" ? "Saved on this device only" : "Connecting…";
+  $("#sync-text").textContent = state.storage === "server" ? "Shared, saves for both of us" : state.storage === "offline" ? "Offline, reconnecting…" : "Connecting…";
 }
 
 function renderTabs() {
@@ -855,8 +856,7 @@ async function bulkAdd() {
     const g = { id: uid(), name: (m[1] || line).trim(), side, group, party: Math.max(1, +m[2] || 1), status, events: { ...events }, notes: "", createdAt: Date.now() };
     added.push(g);
   }
-  if (db) { for (const g of added) await saveGuest(g); }
-  else { state.guests.push(...added); lsSet(LS_GUESTS, state.guests); render(); }
+  await saveGuests(added);
   toast(`Added ${added.length} ${added.length === 1 ? "guest" : "guests"}`);
 }
 
@@ -906,17 +906,35 @@ function unlock() {
   state.route = h && (h === "home" || h === "guests" || decision(h)) ? h : "home";
   connect();
 }
+function lock() {
+  clearInterval(pollTimer);
+  $("#app").hidden = true; $("#gate").hidden = false;
+  $("#pw").value = ""; $("#pw").focus();
+}
 $("#hint-btn").addEventListener("click", () => { const h = $("#hint"); h.hidden = false; h.textContent = CONFIG.passwordHint; });
-$("#gate-form").addEventListener("submit", e => {
+$("#gate-form").addEventListener("submit", async e => {
   e.preventDefault();
-  const v = $("#pw").value.replace(/\D/g, "");
-  if (v === CONFIG.password) { try { sessionStorage.setItem("ww.unlocked", "1"); } catch {} unlock(); }
-  else { $("#gate-error").textContent = "That is not it. Try the hint."; const i = $("#pw"); i.classList.remove("shake"); void i.offsetWidth; i.classList.add("shake"); i.select(); }
+  const btn = $("#gate-form button[type=submit]"); btn.disabled = true;
+  $("#gate-error").textContent = "";
+  try {
+    const r = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: $("#pw").value }), credentials: "same-origin" });
+    if (r.ok) { unlock(); return; }
+    let msg = "That is not it. Try the hint.";
+    if (r.status === 429) { try { msg = (await r.json()).error; } catch {} }
+    $("#gate-error").textContent = msg;
+    const i = $("#pw"); i.classList.remove("shake"); void i.offsetWidth; i.classList.add("shake"); i.select();
+  } catch {
+    $("#gate-error").textContent = "Cannot reach the server. Check your connection and try again.";
+  } finally { btn.disabled = false; }
 });
 window.addEventListener("hashchange", () => { const h = location.hash.slice(1); if (!$("#app").hidden && h && h !== state.route && (h === "home" || h === "guests" || decision(h))) { state.route = h; render(); } });
 document.querySelector("#gate h1").textContent = CONFIG.coupleTitle;
 document.querySelector("#brand-title").innerHTML = esc(CONFIG.coupleTitle) + " <span>Weekend</span>";
-(function boot() { let ok = false; try { ok = sessionStorage.getItem("ww.unlocked") === "1"; } catch {} if (ok) unlock(); else $("#pw").focus(); })();
+(async function boot() {
+  // A valid session cookie skips the gate.
+  try { const r = await fetch("/api/state", { credentials: "same-origin" }); if (r.ok) { const st = await r.json(); unlock(); applyState(st, { force: true }); return; } } catch {}
+  $("#pw").focus();
+})();
 </script>
 </body>
 </html>

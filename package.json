@@ -1,0 +1,17 @@
+{
+  "name": "wedding-weekend",
+  "version": "1.0.0",
+  "description": "Wedding weekend planner with a small shared backend",
+  "private": true,
+  "main": "server.js",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}
