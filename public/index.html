@@ -193,7 +193,12 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .adddate .field{margin-bottom:0}
 .adddate .actions{display:flex;justify-content:flex-end;margin-top:12px}
 .po{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
-.opt .rm{justify-self:start;color:var(--muted)}
+.opt .rm{color:var(--muted)}
+.cardtools{display:flex;gap:14px;flex-wrap:wrap}
+.tag{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:1px 7px;border-radius:999px;background:var(--gold-soft);color:var(--accent);font-weight:600;vertical-align:middle}
+.addrow{margin-bottom:22px}
+#option-fields{display:grid;gap:10px}
+#option-fields .grid2,#option-fields .grid3{margin:0}
 .field.check label{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);padding:9px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
 
 /* ---------- dialog ---------- */
@@ -273,6 +278,19 @@ dialog::backdrop{background:rgba(20,26,23,.45)}
       <div class="right">
         <button type="button" class="btn ghost" id="g-cancel">Cancel</button>
         <button type="submit" class="btn" id="g-save">Save guest</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+<dialog id="option-dialog">
+  <form class="dlg" id="option-form" method="dialog">
+    <h3 id="option-dialog-title">Add an option</h3>
+    <div id="option-fields"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn danger small" id="o-remove" hidden>Remove option</button>
+      <div class="right">
+        <button type="button" class="btn ghost" id="o-cancel">Cancel</button>
+        <button type="submit" class="btn" id="o-save">Save</button>
       </div>
     </div>
   </form>
@@ -487,7 +505,7 @@ const EXTRAS = [
 
 /* ---------------- state + storage ---------------- */
 const state = {
-  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {}, customOptions: {}, plusOneRate: 100 },
+  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {}, customOptions: {}, overrides: {}, plusOneRate: 100 },
   guests: [],           // [{id, name, side, group, party, status, events:{}, notes, createdAt}]
   storage: "loading",   // loading | server | offline
   route: "home",
@@ -499,7 +517,7 @@ function defaultExtras() { const o = {}; EXTRAS.forEach(e => o[e.id] = e.on); re
 function normalizePlan(p) {
   p = p || {};
   return { picks: p.picks || {}, extras: p.extras || defaultExtras(), notes: p.notes || {},
-    customOptions: p.customOptions || {}, plusOneRate: typeof p.plusOneRate === "number" ? p.plusOneRate : 100 };
+    customOptions: p.customOptions || {}, overrides: p.overrides || {}, plusOneRate: typeof p.plusOneRate === "number" ? p.plusOneRate : 100 };
 }
 
 /* API. Every call returns the full shared state, which we apply. */
@@ -513,7 +531,7 @@ async function api(method, url, body) {
 function applyState(st, { force = false } = {}) {
   if (!st) return;
   // Do not yank the page out from under someone who is mid-edit.
-  const busy = document.getElementById("guest-dialog").open || (document.activeElement && /^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName) && document.activeElement.id !== "g-search");
+  const busy = document.getElementById("guest-dialog").open || document.getElementById("option-dialog").open || (document.activeElement && /^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName) && document.activeElement.id !== "g-search");
   if (busy && !force) return;
   serverVersion = st.version || 0;
   if (!planDirty) state.plan = normalizePlan(st.plan); // keep local picks while a write is pending
@@ -565,7 +583,9 @@ const byId = (arr, id) => arr.find(x => x.id === id);
 const decision = id => byId(DECISIONS, id);
 // Built-in options from the data block plus any the couple added in the UI (stored in the plan).
 const customOptions = d => Array.isArray(state.plan.customOptions?.[d.id]) ? state.plan.customOptions[d.id] : [];
-const optionsOf = d => d.options.concat(customOptions(d));
+// Built-in options can be edited in the UI; the edits live in plan.overrides[decision][option].
+const overrideFor = (d, oid) => state.plan.overrides?.[d.id]?.[oid] || null;
+const optionsOf = d => d.options.map(o => { const ov = overrideFor(d, o.id); return ov ? { ...o, ...ov, edited: true } : o; }).concat(customOptions(d));
 function pickedOption(d) { const oid = state.plan.picks[d.id]; return oid ? byId(optionsOf(d), oid) : null; }
 function invitedGuests() { return state.guests.filter(g => g.status === "invited"); }
 function plusOneRate() { const r = state.plan.plusOneRate; return typeof r === "number" ? r : 100; }
@@ -679,12 +699,13 @@ function renderHome() {
         ${b.lines.map(l => `<tr>
           <td>${esc(l.d.title)}${l.o ? `<span class="sub">${esc(l.o.name)}${(l.o.fixed || 0) ? ` · ${fmt$((l.o.fixed || 0) * (l.d.id === "reception" ? dateFactor() : 1))} fixed` : ""}${l.o.perGuest ? ` + ${fmt$(l.o.perGuest)}/guest` : ""}</span>` : `<span class="sub">Not decided</span>`}</td>
           <td class="r num">${l.n}</td>
-          <td class="r num">${l.o ? fmt$(l.cost) : "—"}</td></tr>`).join("")}
+          <td class="r num">${l.o ? (l.o.estimated ? "~" : "") + fmt$(l.cost) : "—"}</td></tr>`).join("")}
         <tr><td>Everything else<span class="sub">${EXTRAS.filter(e => state.plan.extras[e.id]).length} items checked at right</span></td><td class="r"></td><td class="r num">${fmt$(b.extras)}</td></tr>
         <tr class="total"><td>Estimated total</td><td></td><td class="r num">${fmt$(b.total)}</td></tr>
         </tbody>
       </table>
       ${dateFactor() !== 1 ? `<p class="small muted" style="margin-top:10px">Reception venue cost scaled by ${dateFactor()}× for the chosen season.</p>` : ""}
+      ${b.lines.some(l => l.o && l.o.estimated) ? `<p class="small muted" style="margin-top:6px">Lines marked ~ are our own estimates. We do not have a final price for them yet.</p>` : ""}
     </div>
     <div style="display:grid;gap:20px;align-content:start">
       <div class="panel">
@@ -726,7 +747,7 @@ function renderSlot(d) {
   return `<div class="slot"><div class="time">${esc(o.time || "")}</div>
     <div class="card"><p class="eyebrow">${esc(d.title)}</p><h4>${esc(o.name)}</h4>
     ${o.where ? `<p class="where">${esc(o.where)}</p>` : ""}
-    <div class="meta"><span><b class="num">${n}</b> guests</span>${o.duration ? `<span>${esc(o.duration)}</span>` : ""}<span><b class="num">${fmt$(optionCost(d, o, n))}</b> est.</span></div>
+    <div class="meta"><span><b class="num">${n}</b> guests</span>${o.duration ? `<span>${esc(o.duration)}</span>` : ""}<span><b class="num">${o.estimated ? "~" : ""}${fmt$(optionCost(d, o, n))}</b>${o.estimated ? ` <span class="tag">price TBD</span>` : ""}</span></div>
     ${over ? `<p class="warnline">Over capacity: ${o.capacity} max, ${n} on the list.</p>` : ""}
     </div></div>`;
 }
@@ -760,45 +781,18 @@ function renderDecision(d) {
         </div>
         ${(o.pros || o.cons) ? `<div class="pc">${(o.pros || []).map(p => `<span class="p">${esc(p)}</span>`).join("")}${(o.cons || []).map(c => `<span class="c">${esc(c)}</span>`).join("")}</div>` : ""}
         ${over ? `<p class="cap-warn">Over capacity for the current list (${n}).</p>` : ""}
-        ${cost !== null ? `<div class="est"><span class="l">For ${n} guests</span><span class="v num">${fmt$(cost)}</span></div>` : ""}
+        ${cost !== null ? `<div class="est"><span class="l">For ${n} guests${o.estimated ? ` · <span class="tag">Estimate</span>` : ""}</span><span class="v num">${o.estimated ? "~" : ""}${fmt$(cost)}</span></div>` : ""}
+        ${o.estimated && o.estimateNote ? `<p class="small muted">${esc(o.estimateNote)}</p>` : ""}
         ${o.link ? `<a href="${esc(o.link)}" target="_blank" rel="noopener" class="linkish" onclick="event.stopPropagation()">Website</a>` : ""}
-        ${o.custom ? `<button class="linkish rm" data-remove-option="${d.id}" data-option-id="${o.id}">Remove this option</button>` : ""}
+        <div class="cardtools">
+          <button class="linkish" data-edit-option="${d.id}" data-option-id="${o.id}">Edit</button>
+          ${o.edited ? `<button class="linkish rm" data-reset-option="${d.id}" data-option-id="${o.id}">Reset to original</button>` : ""}
+          ${o.custom ? `<button class="linkish rm" data-remove-option="${d.id}" data-option-id="${o.id}">Remove</button>` : ""}
+        </div>
       </div>`;
     }).join("")}
   </div>
-  <div class="panel adddate">
-    <p class="eyebrow">Add an option</p>
-    <h3>${d.id === "date" ? "Another day to consider" : `Another ${d.title.replace(/^The /, "").toLowerCase()} option`}</h3>
-    ${d.id === "date" ? `
-    <div class="grid3">
-      <div class="field"><span>Date</span><input type="date" id="nd-date" min="2027-01-01" max="2028-12-31"></div>
-      <div class="field"><span>Label</span><input id="nd-name" placeholder="e.g. Memorial Day weekend"></div>
-      <div class="field"><span>Venue season factor</span>
-        <select id="nd-factor"><option value="0.9">0.9× off-peak</option><option value="1" selected>1.0× normal</option><option value="1.05">1.05× busy</option><option value="1.1">1.1× peak</option></select></div>
-    </div>
-    <div class="field"><span>Why this date?</span><input id="nd-desc" placeholder="Notes, conflicts, who is in town"></div>`
-    : `
-    <div class="grid2">
-      <div class="field"><span>Name</span><input id="nd-name" placeholder="e.g. Rooftop at the Grand Hotel" required></div>
-      <div class="field"><span>Where</span><input id="nd-where" placeholder="Venue, neighborhood or address"></div>
-    </div>
-    <div class="grid3">
-      <div class="field"><span>Start time</span><input id="nd-time" placeholder="6:30 PM"></div>
-      <div class="field"><span>Duration</span><input id="nd-duration" placeholder="3 hrs"></div>
-      <div class="field"><span>Capacity</span><input id="nd-capacity" type="number" min="1" placeholder="max guests"></div>
-    </div>
-    <div class="grid3">
-      <div class="field"><span>Fixed cost ($)</span><input id="nd-fixed" type="number" min="0" step="50" placeholder="room fee, rentals"></div>
-      <div class="field"><span>Per guest ($)</span><input id="nd-perguest" type="number" min="0" step="1" placeholder="food and drink"></div>
-      <div class="field"><span>Website</span><input id="nd-link" type="url" placeholder="https://"></div>
-    </div>
-    <div class="field"><span>Description</span><input id="nd-desc" placeholder="What it is like, what is included"></div>
-    <div class="grid2">
-      <div class="field"><span>Pros (comma separated)</span><input id="nd-pros" placeholder="Walkable, great food"></div>
-      <div class="field"><span>Cons (comma separated)</span><input id="nd-cons" placeholder="Loud, hard parking"></div>
-    </div>`}
-    <div class="actions"><button class="btn" id="nd-add">Add to ${esc(d.title)}</button></div>
-  </div>
+  <div class="addrow"><button class="btn ghost" id="nd-open">Add an option to ${esc(d.title)}</button></div>
   <div class="notes">
     <label class="eyebrow" for="note-${d.id}">Our notes on this decision</label>
     <textarea id="note-${d.id}" data-note="${d.id}" placeholder="Quotes, contacts, things to ask the venue…">${esc(state.plan.notes[d.id] || "")}</textarea>
@@ -885,32 +879,18 @@ function bindMain() {
     if (state.plan.picks[did] === oid) delete state.plan.picks[did];
     savePlan(); render();
   }));
-  const ndAdd = $("#nd-add"); if (ndAdd) ndAdd.addEventListener("click", () => {
-    const d = decision(state.route); if (!d) return;
-    const v = id => { const el = $("#" + id); return el ? el.value.trim() : ""; };
-    const num = id => { const n = Number(v(id)); return v(id) !== "" && Number.isFinite(n) ? n : undefined; };
-    const list = id => v(id) ? v(id).split(",").map(x => x.trim()).filter(Boolean) : undefined;
-    let o;
-    if (d.id === "date") {
-      const dateStr = v("nd-date");
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { toast("Pick a date first"); $("#nd-date").focus(); return; }
-      if (optionsOf(d).some(x => x.date === dateStr)) { toast("That date is already on the list"); return; }
-      const dt = new Date(dateStr + "T12:00:00");
-      o = { id: "custom-" + uid(), custom: true, date: dateStr, costFactor: num("nd-factor") || 1,
-        name: v("nd-name") || dt.toLocaleDateString("en-US", { month: "long", day: "numeric" }), desc: v("nd-desc") };
-      if (dt.getDay() !== 6) toast(`Heads up: that is a ${weekday(dt)}, not a Saturday.`);
-    } else {
-      if (!v("nd-name")) { toast("Give the option a name"); $("#nd-name").focus(); return; }
-      o = { id: "custom-" + uid(), custom: true, name: v("nd-name"), where: v("nd-where"), time: v("nd-time"), duration: v("nd-duration"),
-        capacity: num("nd-capacity"), fixed: num("nd-fixed") || 0, perGuest: num("nd-perguest") || 0, desc: v("nd-desc"),
-        pros: list("nd-pros"), cons: list("nd-cons"), link: /^https?:\/\//.test(v("nd-link")) ? v("nd-link") : undefined };
-      Object.keys(o).forEach(k => (o[k] === undefined || o[k] === "") && delete o[k]);
-    }
-    if (!state.plan.customOptions) state.plan.customOptions = {};
-    state.plan.customOptions[d.id] = customOptions(d).concat([o]);
+  const ndOpen = $("#nd-open"); if (ndOpen) ndOpen.addEventListener("click", () => openOption(decision(state.route), null));
+  main.querySelectorAll("[data-edit-option]").forEach(b => b.addEventListener("click", e => {
+    e.stopPropagation();
+    const d = decision(b.dataset.editOption); openOption(d, byId(optionsOf(d), b.dataset.optionId));
+  }));
+  main.querySelectorAll("[data-reset-option]").forEach(b => b.addEventListener("click", e => {
+    e.stopPropagation();
+    const did = b.dataset.resetOption, oid = b.dataset.optionId;
+    if (!confirm("Discard your edits and go back to the original listing?")) return;
+    if (state.plan.overrides?.[did]) delete state.plan.overrides[did][oid];
     savePlan(); render();
-    toast(`Added ${o.name}`);
-  });
+  }));
   const po = $("#po-rate"); if (po) {
     po.addEventListener("input", () => {
       state.plan.plusOneRate = +po.value;
@@ -990,6 +970,97 @@ $("#guest-form").addEventListener("submit", async e => {
   await saveGuest(g); toast(editing ? "Guest updated" : "Guest added");
 });
 document.getElementById("tabs").addEventListener("click", e => { const b = e.target.closest("[data-route]"); if (b) go(b.dataset.route); });
+
+/* ---------------- add / edit an option ---------------- */
+let editingOption = null; // { d, o } — o is null when adding
+const OPTION_FIELDS = {
+  date: [
+    { grid: 3, fields: [["date", "Date", "date"], ["name", "Label", "text", "e.g. Memorial Day weekend"], ["costFactor", "Venue season factor", "select", [["0.9", "0.9× off-peak"], ["1", "1.0× normal"], ["1.05", "1.05× busy"], ["1.1", "1.1× peak"]]]] },
+    { fields: [["desc", "Why this date?", "text", "Notes, conflicts, who is in town"]] },
+  ],
+  event: [
+    { grid: 2, fields: [["name", "Name", "text", "e.g. Rooftop at the Grand Hotel"], ["where", "Where", "text", "Venue, neighborhood or address"]] },
+    { grid: 3, fields: [["time", "Start time", "text", "6:30 PM"], ["duration", "Duration", "text", "3 hrs"], ["capacity", "Capacity", "number", "max guests"]] },
+    { grid: 3, fields: [["fixed", "Fixed cost ($)", "number", "room fee, rentals"], ["perGuest", "Per guest ($)", "number", "food and drink"], ["link", "Website", "url", "https://"]] },
+    { fields: [["desc", "Description", "text", "What it is like, what is included"]] },
+    { grid: 2, fields: [["pros", "Pros (comma separated)", "text", "Walkable, great food"], ["cons", "Cons (comma separated)", "text", "Loud, hard parking"]] },
+    { grid: 2, fields: [["estimated", "Price status", "select", [["", "Quoted or confirmed price"], ["1", "Estimate, no final price yet"]]], ["estimateNote", "Estimate note", "text", "e.g. waiting on the venue's quote"]] },
+  ],
+};
+function fieldValue(o, key) {
+  if (!o) return key === "costFactor" ? "1" : "";
+  const v = o[key];
+  if (v === undefined || v === null) return "";
+  if (Array.isArray(v)) return v.join(", ");
+  if (key === "estimated") return v ? "1" : "";
+  return String(v);
+}
+function openOption(d, o) {
+  if (!d) return;
+  editingOption = { d, o };
+  const kind = d.id === "date" ? "date" : "event";
+  $("#option-dialog-title").textContent = o ? `Edit: ${o.name}` : `Add an option to ${d.title}`;
+  $("#option-fields").innerHTML = OPTION_FIELDS[kind].map(row => `<div class="${row.grid ? "grid" + row.grid : ""}">${row.fields.map(([key, label, type, extra]) => {
+    const id = "o-" + key, val = fieldValue(o, key);
+    if (type === "select") return `<div class="field"><span>${label}</span><select id="${id}">${extra.map(([v, t]) => `<option value="${v}" ${String(val) === v ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
+    return `<div class="field"><span>${label}</span><input id="${id}" type="${type}" value="${esc(val)}" placeholder="${esc(extra || "")}" ${type === "number" ? 'min="0"' : ""} ${type === "date" ? 'min="2027-01-01" max="2028-12-31"' : ""}></div>`;
+  }).join("")}</div>`).join("");
+  $("#o-remove").hidden = !(o && o.custom);
+  $("#o-save").textContent = o ? "Save changes" : "Add option";
+  $("#option-dialog").showModal();
+  setTimeout(() => $(kind === "date" ? "#o-date" : "#o-name").focus(), 30);
+}
+$("#o-cancel").addEventListener("click", () => $("#option-dialog").close());
+$("#o-remove").addEventListener("click", () => {
+  const { d, o } = editingOption || {}; if (!o || !o.custom) return;
+  if (!confirm(`Remove "${o.name}" from ${d.title}?`)) return;
+  state.plan.customOptions[d.id] = customOptions(d).filter(x => x.id !== o.id);
+  if (state.plan.picks[d.id] === o.id) delete state.plan.picks[d.id];
+  $("#option-dialog").close(); savePlan(); render(); toast("Option removed");
+});
+$("#option-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const { d, o } = editingOption || {}; if (!d) return;
+  const v = key => { const el = $("#o-" + key); return el ? el.value.trim() : ""; };
+  const num = key => { const t = v(key); const n = Number(t); return t !== "" && Number.isFinite(n) ? n : undefined; };
+  const list = key => v(key) ? v(key).split(",").map(x => x.trim()).filter(Boolean) : undefined;
+  let fields;
+  if (d.id === "date") {
+    const dateStr = v("date");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { toast("Pick a date first"); $("#o-date").focus(); return; }
+    if (optionsOf(d).some(x => x.date === dateStr && x.id !== (o && o.id))) { toast("That date is already on the list"); return; }
+    const dt = new Date(dateStr + "T12:00:00");
+    fields = { date: dateStr, costFactor: num("costFactor") || 1, name: v("name") || dt.toLocaleDateString("en-US", { month: "long", day: "numeric" }), desc: v("desc") };
+    if (dt.getDay() !== 6) toast(`Heads up: that is a ${weekday(dt)}, not a Saturday.`);
+  } else {
+    if (!v("name")) { toast("Give the option a name"); $("#o-name").focus(); return; }
+    fields = { name: v("name"), where: v("where"), time: v("time"), duration: v("duration"), capacity: num("capacity"),
+      fixed: num("fixed") || 0, perGuest: num("perGuest") || 0, desc: v("desc"), pros: list("pros"), cons: list("cons"),
+      link: /^https?:\/\//.test(v("link")) ? v("link") : undefined, estimated: v("estimated") === "1", estimateNote: v("estimateNote") };
+  }
+  Object.keys(fields).forEach(k => (fields[k] === undefined || fields[k] === "") && delete fields[k]);
+  if (!o) {
+    const added = { id: "custom-" + uid(), custom: true, ...fields };
+    if (!state.plan.customOptions) state.plan.customOptions = {};
+    state.plan.customOptions[d.id] = customOptions(d).concat([added]);
+    toast(`Added ${added.name}`);
+  } else if (o.custom) {
+    state.plan.customOptions[d.id] = customOptions(d).map(x => x.id === o.id ? { id: o.id, custom: true, ...fields } : x);
+    toast("Saved");
+  } else {
+    // Built-in option: keep the edit as an override so the original stays in the data block.
+    if (!state.plan.overrides) state.plan.overrides = {};
+    if (!state.plan.overrides[d.id]) state.plan.overrides[d.id] = {};
+    const base = byId(d.options, o.id);
+    const ov = {};
+    for (const [k, val] of Object.entries(fields)) if (JSON.stringify(val) !== JSON.stringify(base[k])) ov[k] = val;
+    for (const k of ["where", "time", "duration", "capacity", "desc", "pros", "cons", "link", "estimateNote"]) if (!(k in fields) && base[k] !== undefined) ov[k] = k === "pros" || k === "cons" ? [] : k === "capacity" ? 0 : "";
+    if (!("estimated" in fields) && base.estimated) ov.estimated = false;
+    if (Object.keys(ov).length) state.plan.overrides[d.id][o.id] = ov; else delete state.plan.overrides[d.id][o.id];
+    toast("Saved");
+  }
+  $("#option-dialog").close(); savePlan(); render();
+});
 
 let toastTimer;
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2200); }

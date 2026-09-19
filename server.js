@@ -113,16 +113,26 @@ function throttled(ip) {
 
 /* ---------------- validation ---------------- */
 const isObj = v => v && typeof v === "object" && !Array.isArray(v);
-function cleanCustomOption(o) {
-  if (!isObj(o) || typeof o.id !== "string" || !/^[\w-]{4,60}$/.test(o.id)) return null;
-  const out = { id: o.id, custom: true, name: String(o.name || "").trim().slice(0, 120) || "Added option" };
+function cleanOptionFields(o, out) {
   if (typeof o.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.date)) out.date = o.date;
   if (Number.isFinite(Number(o.costFactor))) out.costFactor = Math.min(3, Math.max(0.1, Number(o.costFactor)));
   for (const k of ["where", "desc", "time", "duration"]) if (o[k]) out[k] = String(o[k]).slice(0, 300);
   for (const k of ["fixed", "perGuest", "capacity"]) if (o[k] !== undefined && Number.isFinite(Number(o[k]))) out[k] = Math.max(0, Number(o[k]));
   for (const k of ["pros", "cons"]) if (Array.isArray(o[k])) out[k] = o[k].slice(0, 8).map(x => String(x).slice(0, 120)).filter(Boolean);
   if (typeof o.link === "string" && /^https?:\/\/[^\s]{1,500}$/.test(o.link)) out.link = o.link;
+  if ("estimated" in o) out.estimated = !!o.estimated;
+  if (o.estimateNote) out.estimateNote = String(o.estimateNote).slice(0, 300);
   return out;
+}
+function cleanCustomOption(o) {
+  if (!isObj(o) || typeof o.id !== "string" || !/^[\w-]{4,60}$/.test(o.id)) return null;
+  return cleanOptionFields(o, { id: o.id, custom: true, name: String(o.name || "").trim().slice(0, 120) || "Added option" });
+}
+function cleanOverride(o) {
+  if (!isObj(o)) return null;
+  const out = cleanOptionFields(o, {});
+  if (typeof o.name === "string" && o.name.trim()) out.name = o.name.trim().slice(0, 120);
+  return Object.keys(out).length ? out : null;
 }
 function cleanPlan(p) {
   if (!isObj(p)) return null;
@@ -133,10 +143,18 @@ function cleanPlan(p) {
       customOptions[did] = list.slice(0, 50).map(cleanCustomOption).filter(Boolean);
     }
   }
+  const overrides = {};
+  if (isObj(p.overrides)) {
+    for (const [did, m] of Object.entries(p.overrides)) {
+      if (!/^[\w-]{1,40}$/.test(did) || !isObj(m)) continue;
+      overrides[did] = {};
+      for (const [oid, o] of Object.entries(m).slice(0, 50)) { const c = cleanOverride(o); if (c && /^[\w.-]{1,60}$/.test(oid)) overrides[did][oid] = c; }
+    }
+  }
   const rate = Number(p.plusOneRate);
   return {
     picks: isObj(p.picks) ? p.picks : {}, extras: isObj(p.extras) ? p.extras : {}, notes: isObj(p.notes) ? p.notes : {},
-    customOptions, plusOneRate: Number.isFinite(rate) ? Math.min(100, Math.max(0, Math.round(rate))) : 100,
+    customOptions, overrides, plusOneRate: Number.isFinite(rate) ? Math.min(100, Math.max(0, Math.round(rate))) : 100,
   };
 }
 function cleanGuest(g) {
