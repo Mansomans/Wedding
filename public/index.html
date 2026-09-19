@@ -176,6 +176,8 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .gtools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 .gtools input[type=search],.gtools select{padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
 .gtools input[type=search]{flex:1;min-width:160px}
+.ftotals{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-bottom:10px;font-size:14px;color:var(--ink-2)}
+.ftotals b{font-family:var(--display);font-size:20px;color:var(--ink);font-weight:600;margin-right:3px}
 .gtable-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
 .gtable{min-width:720px}
 .gtable th,.gtable td{padding:9px 12px}
@@ -530,7 +532,7 @@ const state = {
   guests: [],           // [{id, name, side, group, party, status, events:{}, notes, createdAt}]
   storage: "loading",   // loading | server | offline
   route: "home",
-  filter: { q: "", status: "all", side: "all" },
+  filter: { q: "", status: "all", side: "all", group: "all" },
 };
 const uid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
 
@@ -889,7 +891,10 @@ function renderGuests() {
   if (q) list = list.filter(g => (g.name + " " + (g.notes || "") + " " + (g.group || "")).toLowerCase().includes(q));
   if (f.status !== "all") list = list.filter(g => g.status === f.status);
   if (f.side !== "all") list = list.filter(g => g.side === f.side);
+  if (f.group !== "all") list = list.filter(g => g.group === f.group);
   const inv = invitedGuests();
+  const filtering = q || f.status !== "all" || f.side !== "all" || f.group !== "all";
+  const shownInvited = list.filter(g => g.status === "invited");
   return `
   <div class="ghead">
     <div><p class="eyebrow">Guest list</p><h2>Who we celebrate with</h2></div>
@@ -904,7 +909,15 @@ function renderGuests() {
     <input type="search" id="g-search" placeholder="Search names, groups, notes" value="${esc(f.q)}" aria-label="Search guests">
     <select id="g-filter-status" aria-label="Filter by status"><option value="all" ${f.status === "all" ? "selected" : ""}>All statuses</option><option value="invited" ${f.status === "invited" ? "selected" : ""}>Inviting</option><option value="maybe" ${f.status === "maybe" ? "selected" : ""}>Maybe</option><option value="no" ${f.status === "no" ? "selected" : ""}>Not inviting</option></select>
     <select id="g-filter-side" aria-label="Filter by side"><option value="all">All sides</option>${CONFIG.sides.map(s => `<option value="${esc(s)}" ${f.side === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
+    <select id="g-filter-group" aria-label="Filter by group"><option value="all">All groups</option>${CONFIG.groups.map(s => `<option value="${esc(s)}" ${f.group === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
     <button class="btn" id="g-add">Add guest</button>
+  </div>
+  <div class="ftotals">
+    <span><b class="num">${list.length}</b> ${list.length === 1 ? "entry" : "entries"}${filtering ? ` of ${state.guests.length}` : ""}</span>
+    <span><b class="num">${headcount(list, 100)}</b> heads listed</span>
+    <span><b class="num">${headcount(shownInvited)}</b> expected${filtering ? " from this filter" : ""}</span>
+    <span><b class="num">${plusOnesOffered(list)}</b> plus-ones</span>
+    ${filtering ? `<button class="linkish" id="g-clear-filters">Clear filters</button>` : ""}
   </div>
   <div class="gtable-wrap">
     ${list.length ? `<table class="gtable">
@@ -995,6 +1008,8 @@ function bindMain() {
   const s = $("#g-search"); if (s) s.addEventListener("input", () => { state.filter.q = s.value; const pos = s.selectionStart; render(); const s2 = $("#g-search"); s2.focus(); s2.setSelectionRange(pos, pos); });
   const fs = $("#g-filter-status"); if (fs) fs.addEventListener("change", () => { state.filter.status = fs.value; render(); });
   const fd = $("#g-filter-side"); if (fd) fd.addEventListener("change", () => { state.filter.side = fd.value; render(); });
+  const fg = $("#g-filter-group"); if (fg) fg.addEventListener("change", () => { state.filter.group = fg.value; render(); });
+  const fc = $("#g-clear-filters"); if (fc) fc.addEventListener("click", () => { state.filter = { q: "", status: "all", side: "all", group: "all" }; render(); });
   const add = $("#g-add"); if (add) add.addEventListener("click", () => openGuest(null));
   main.querySelectorAll("[data-guest]").forEach(r => {
     const open = () => openGuest(byId(state.guests, r.dataset.guest));
