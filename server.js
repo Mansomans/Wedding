@@ -113,9 +113,29 @@ function throttled(ip) {
 
 /* ---------------- validation ---------------- */
 const isObj = v => v && typeof v === "object" && !Array.isArray(v);
+function cleanCustomOption(o) {
+  if (!isObj(o) || typeof o.id !== "string" || !/^[\w-]{4,60}$/.test(o.id)) return null;
+  const out = { id: o.id, custom: true, name: String(o.name || "").trim().slice(0, 120) || "Added option" };
+  if (typeof o.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.date)) out.date = o.date;
+  if (Number.isFinite(Number(o.costFactor))) out.costFactor = Math.min(3, Math.max(0.1, Number(o.costFactor)));
+  for (const k of ["where", "desc", "time", "duration"]) if (o[k]) out[k] = String(o[k]).slice(0, 300);
+  for (const k of ["fixed", "perGuest", "capacity"]) if (Number.isFinite(Number(o[k]))) out[k] = Math.max(0, Number(o[k]));
+  return out;
+}
 function cleanPlan(p) {
   if (!isObj(p)) return null;
-  return { picks: isObj(p.picks) ? p.picks : {}, extras: isObj(p.extras) ? p.extras : {}, notes: isObj(p.notes) ? p.notes : {} };
+  const customOptions = {};
+  if (isObj(p.customOptions)) {
+    for (const [did, list] of Object.entries(p.customOptions)) {
+      if (!/^[\w-]{1,40}$/.test(did) || !Array.isArray(list)) continue;
+      customOptions[did] = list.slice(0, 50).map(cleanCustomOption).filter(Boolean);
+    }
+  }
+  const rate = Number(p.plusOneRate);
+  return {
+    picks: isObj(p.picks) ? p.picks : {}, extras: isObj(p.extras) ? p.extras : {}, notes: isObj(p.notes) ? p.notes : {},
+    customOptions, plusOneRate: Number.isFinite(rate) ? Math.min(100, Math.max(0, Math.round(rate))) : 100,
+  };
 }
 function cleanGuest(g) {
   if (!isObj(g) || typeof g.id !== "string" || !/^[\w-]{4,40}$/.test(g.id)) return null;
@@ -125,6 +145,7 @@ function cleanGuest(g) {
     id: g.id, name,
     side: String(g.side || "").slice(0, 60), group: String(g.group || "").slice(0, 60),
     party: Math.min(20, Math.max(1, Math.round(Number(g.party) || 1))),
+    plusOne: !!g.plusOne,
     status: ["invited", "maybe", "no"].includes(g.status) ? g.status : "invited",
     events: isObj(g.events) ? Object.fromEntries(Object.entries(g.events).map(([k, v]) => [String(k).slice(0, 30), !!v])) : {},
     notes: String(g.notes || "").slice(0, 500),

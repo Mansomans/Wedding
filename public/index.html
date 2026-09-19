@@ -3,40 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <meta name="robots" content="noindex, nofollow">
 <title>Our Wedding Weekend</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Karla:wght@400;500;600;700&display=swap">
 <style>
 :root{
-  --bg:#F5F3EE; --surface:#FFFFFF; --surface-2:#ECE9E1; --line:#D9D4C8; --line-strong:#B9B2A2;
-  --ink:#1E2723; --ink-2:#4E5852; --muted:#7A847D;
-  --accent:#2F5F4F; --accent-ink:#FFFFFF; --accent-soft:#DCE9E2;
-  --gold:#A8843F; --gold-soft:#F1E7D2; --blush:#C98F86; --blush-soft:#F4E3DF;
-  --good:#2E7D4F; --warn:#B4741A; --bad:#A7443A;
-  --shadow:0 1px 2px rgba(30,39,35,.06),0 8px 24px -12px rgba(30,39,35,.18);
+  --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#FBF7EC; --line:#EBE2CC; --line-strong:#D3C08F;
+  --ink:#2A2418; --ink-2:#5E543F; --muted:#8E8369;
+  --accent:#9C7A1F; --accent-ink:#FFFFFF; --accent-soft:#F7EFD9;
+  --gold:#C6A653; --gold-soft:#F7EFD9; --blush:#C6A653; --blush-soft:#F7EFD9;
+  --good:#6B8E3D; --warn:#B4741A; --bad:#A7443A;
+  --shadow:0 1px 2px rgba(120,95,30,.06),0 8px 24px -12px rgba(120,95,30,.18);
   --display:"Cormorant Garamond",Georgia,"Times New Roman",serif;
   --body:"Karla","Helvetica Neue",Arial,sans-serif;
   --radius:10px;
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#131917; --surface:#1B2320; --surface-2:#222C28; --line:#2F3B36; --line-strong:#4A5852;
-    --ink:#ECE8DF; --ink-2:#C2BEB4; --muted:#8F988F;
-    --accent:#7FB89F; --accent-ink:#0F1A15; --accent-soft:#223A31;
-    --gold:#D3B26F; --gold-soft:#3A3120; --blush:#D9A59B; --blush-soft:#3E2C29;
-    --good:#7FC79A; --warn:#E0AE5B; --bad:#E08A80;
-    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#131917; --surface:#1B2320; --surface-2:#222C28; --line:#2F3B36; --line-strong:#4A5852;
-  --ink:#ECE8DF; --ink-2:#C2BEB4; --muted:#8F988F;
-  --accent:#7FB89F; --accent-ink:#0F1A15; --accent-soft:#223A31;
-  --gold:#D3B26F; --gold-soft:#3A3120; --blush:#D9A59B; --blush-soft:#3E2C29;
-  --good:#7FC79A; --warn:#E0AE5B; --bad:#E08A80;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  color-scheme:light;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -55,7 +38,7 @@ button{cursor:pointer}
 /* ---------- gate ---------- */
 #gate{min-height:100%;display:grid;place-items:center;padding:24px 16px;background:var(--bg)}
 .gate-card{width:100%;max-width:380px;text-align:center;display:grid;gap:18px}
-.monogram{width:72px;height:72px;margin:0 auto;border:1px solid var(--gold);border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:30px;font-style:italic;color:var(--gold)}
+.monogram{width:72px;height:72px;margin:0 auto;border:1.5px solid var(--gold);border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:30px;font-style:italic;color:var(--gold)}
 .gate-card h1{font-size:40px;font-style:italic}
 .gate-form{display:grid;gap:10px}
 .gate-form input{padding:12px 14px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);text-align:center;letter-spacing:.2em;font-size:18px}
@@ -103,7 +86,7 @@ main{max-width:1120px;margin:0 auto;padding-block:24px 64px;padding-inline:16px}
 .stat .l{font-size:12px;color:var(--muted)}
 .days{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-bottom:32px}
 .day{display:grid;gap:12px;align-content:start}
-.day-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line-strong);padding-bottom:8px}
+.day-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--gold);padding-bottom:8px}
 .day-head h3{font-size:24px}
 .day-head .date{color:var(--muted);font-size:13px}
 .slot{display:grid;grid-template-columns:72px 1fr;gap:12px}
@@ -202,6 +185,17 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .bulk .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
 .bulk select{padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
 
+.scenario input[type=range]{width:100%;accent-color:var(--accent);margin:8px 0 4px}
+.scen-row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14px;color:var(--ink-2)}
+.scen-row b{color:var(--ink);font-family:var(--display);font-size:22px;font-weight:600}
+.adddate{margin-bottom:22px;max-width:760px}
+.adddate .grid3{margin-bottom:10px}
+.adddate .field{margin-bottom:0}
+.adddate .actions{display:flex;justify-content:flex-end;margin-top:12px}
+.po{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
+.opt .rm{justify-self:start;color:var(--muted)}
+.field.check label{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);padding:9px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+
 /* ---------- dialog ---------- */
 dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:0;width:min(520px,calc(100vw - 32px));box-shadow:var(--shadow)}
 dialog::backdrop{background:rgba(20,26,23,.45)}
@@ -264,6 +258,7 @@ dialog::backdrop{background:rgba(20,26,23,.45)}
         <select id="g-group"></select></div>
       <div class="field"><span>Head count</span><input id="g-party" type="number" min="1" max="20" value="1"></div>
     </div>
+    <div class="field check"><label><input type="checkbox" id="g-plusone"> Offer a plus-one (counts as one more seat when they bring someone)</label></div>
     <div class="field"><span>Status</span>
       <select id="g-status">
         <option value="invited">Inviting</option>
@@ -492,7 +487,7 @@ const EXTRAS = [
 
 /* ---------------- state + storage ---------------- */
 const state = {
-  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {} },
+  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {}, customOptions: {}, plusOneRate: 100 },
   guests: [],           // [{id, name, side, group, party, status, events:{}, notes, createdAt}]
   storage: "loading",   // loading | server | offline
   route: "home",
@@ -503,7 +498,8 @@ const uid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(3
 function defaultExtras() { const o = {}; EXTRAS.forEach(e => o[e.id] = e.on); return o; }
 function normalizePlan(p) {
   p = p || {};
-  return { picks: p.picks || {}, extras: p.extras || defaultExtras(), notes: p.notes || {} };
+  return { picks: p.picks || {}, extras: p.extras || defaultExtras(), notes: p.notes || {},
+    customOptions: p.customOptions || {}, plusOneRate: typeof p.plusOneRate === "number" ? p.plusOneRate : 100 };
 }
 
 /* API. Every call returns the full shared state, which we apply. */
@@ -567,9 +563,15 @@ function connect() {
 const fmt$ = n => "$" + Math.round(n).toLocaleString("en-US");
 const byId = (arr, id) => arr.find(x => x.id === id);
 const decision = id => byId(DECISIONS, id);
-function pickedOption(d) { const oid = state.plan.picks[d.id]; return oid ? byId(d.options, oid) : null; }
+// Built-in options from the data block plus any the couple added in the UI (stored in the plan).
+const customOptions = d => Array.isArray(state.plan.customOptions?.[d.id]) ? state.plan.customOptions[d.id] : [];
+const optionsOf = d => d.options.concat(customOptions(d));
+function pickedOption(d) { const oid = state.plan.picks[d.id]; return oid ? byId(optionsOf(d), oid) : null; }
 function invitedGuests() { return state.guests.filter(g => g.status === "invited"); }
-function headcount(list) { return list.reduce((s, g) => s + (Number(g.party) || 1), 0); }
+function plusOneRate() { const r = state.plan.plusOneRate; return typeof r === "number" ? r : 100; }
+function plusOnesOffered(list) { return list.filter(g => g.plusOne).length; }
+// Heads = each party's own count, plus the share of offered plus-ones the scenario says will come.
+function headcount(list, rate = plusOneRate()) { return list.reduce((s, g) => s + (Number(g.party) || 1), 0) + Math.round(plusOnesOffered(list) * rate / 100); }
 function attendees(eventKey) {
   if (!eventKey) return invitedGuests();
   return invitedGuests().filter(g => g.events && g.events[eventKey]);
@@ -647,10 +649,10 @@ function renderHome() {
     <p class="eyebrow">${date ? `${daysUntil(date)} days away` : "Date not chosen yet"}</p>
     <h2>${date ? longDate(date) : "A weekend, sometime next year"}</h2>
     <p class="sub">${decided} of ${DECISIONS.length} decisions made. ${invited ? `${invited} people on the invite list${maybe ? `, ${maybe} more on the maybe list` : ""}.` : "The guest list is empty so far."}</p>
-    ${!date ? `<div class="chips">${decision("date").options.map(x => `<button class="chip" data-pick="date" data-option="${x.id}">${esc(x.name)} · ${shortDate(new Date(x.date + "T12:00:00"))}</button>`).join("")}<button class="chip" data-route="date">Compare dates →</button></div>` : ""}
+    ${!date ? `<div class="chips">${optionsOf(decision("date")).map(x => `<button class="chip" data-pick="date" data-option="${x.id}">${esc(x.name)} · ${shortDate(new Date(x.date + "T12:00:00"))}</button>`).join("")}<button class="chip" data-route="date">Compare dates →</button></div>` : ""}
   </section>
   <div class="stats">
-    <div class="stat"><span class="v num">${invited}</span><span class="l">Guests inviting</span></div>
+    <div class="stat"><span class="v num">${invited}</span><span class="l">Guests expected${plusOnesOffered(invitedGuests()) ? ` · ${Math.round(plusOnesOffered(invitedGuests()) * plusOneRate() / 100)} plus-ones` : ""}</span></div>
     <div class="stat"><span class="v num">${headcount(attendees("reception"))}</span><span class="l">At the reception</span></div>
     <div class="stat"><span class="v num">${fmt$(b.total)}</span><span class="l">Estimated budget</span></div>
     <div class="stat"><span class="v num">${invited ? fmt$(b.total / invited) : "—"}</span><span class="l">Per invited guest</span></div>
@@ -686,6 +688,15 @@ function renderHome() {
     </div>
     <div style="display:grid;gap:20px;align-content:start">
       <div class="panel">
+        <p class="eyebrow">Scenario</p>
+        <h3>Plus-ones who actually come</h3>
+        <div class="scenario">
+          <input type="range" id="po-rate" min="0" max="100" step="5" value="${plusOneRate()}" aria-label="Share of plus-ones expected to attend">
+          <div class="scen-row"><span><b id="po-pct" class="num">${plusOneRate()}%</b> of plus-ones show up</span><span><b id="po-count" class="num">${Math.round(plusOnesOffered(invitedGuests()) * plusOneRate() / 100)}</b> of ${plusOnesOffered(invitedGuests())} extra seats</span></div>
+        </div>
+        <p class="small muted" style="margin-top:10px">Every headcount and cost on this page follows this slider. Offer plus-ones per guest in the +1 column on the Guests tab.</p>
+      </div>
+      <div class="panel">
         <p class="eyebrow">Include in the estimate</p>
         <h3>Everything else</h3>
         <div class="extras">
@@ -708,7 +719,7 @@ function renderSlot(d) {
   if (!o) {
     return `<div class="slot"><div class="time tbd">—</div>
       <div class="card undecided"><p class="eyebrow">${esc(d.title)}</p><h4>Still deciding</h4>
-      <div class="chips">${d.options.slice(0, 4).map(x => `<button class="chip" data-pick="${d.id}" data-option="${x.id}">${esc(x.name)}</button>`).join("")}<button class="chip" data-route="${d.id}">All options →</button></div></div></div>`;
+      <div class="chips">${optionsOf(d).slice(0, 4).map(x => `<button class="chip" data-pick="${d.id}" data-option="${x.id}">${esc(x.name)}</button>`).join("")}<button class="chip" data-route="${d.id}">All options →</button></div></div></div>`;
   }
   const n = headcount(attendees(d.eventKey));
   const over = o.capacity && n > o.capacity;
@@ -731,7 +742,7 @@ function renderDecision(d) {
     ${d.context ? `<p class="context">${esc(d.context)}${d.eventKey ? ` Right now that is <b class="num">${n}</b> people.` : ""}</p>` : ""}
   </section>
   <div class="options">
-    ${d.options.map(o => {
+    ${optionsOf(d).map(o => {
       const isPicked = picked === o.id;
       const cost = d.eventKey ? optionCost(d, o, n) : null;
       const over = o.capacity && n > o.capacity;
@@ -751,9 +762,22 @@ function renderDecision(d) {
         ${over ? `<p class="cap-warn">Over capacity for the current list (${n}).</p>` : ""}
         ${cost !== null ? `<div class="est"><span class="l">For ${n} guests</span><span class="v num">${fmt$(cost)}</span></div>` : ""}
         ${o.link ? `<a href="${esc(o.link)}" target="_blank" rel="noopener" class="linkish" onclick="event.stopPropagation()">Website</a>` : ""}
+        ${o.custom ? `<button class="linkish rm" data-remove-option="${d.id}" data-option-id="${o.id}">Remove this date</button>` : ""}
       </div>`;
     }).join("")}
   </div>
+  ${d.id === "date" ? `<div class="panel adddate">
+    <p class="eyebrow">Add a date</p>
+    <h3>Another day to consider</h3>
+    <div class="grid3">
+      <div class="field"><span>Date</span><input type="date" id="nd-date" min="2027-01-01" max="2028-12-31"></div>
+      <div class="field"><span>Label</span><input id="nd-name" placeholder="e.g. Memorial Day weekend"></div>
+      <div class="field"><span>Venue season factor</span>
+        <select id="nd-factor"><option value="0.9">0.9× off-peak</option><option value="1" selected>1.0× normal</option><option value="1.05">1.05× busy</option><option value="1.1">1.1× peak</option></select></div>
+    </div>
+    <div class="field"><span>Why this date?</span><input id="nd-desc" placeholder="Notes, conflicts, who is in town"></div>
+    <div class="actions"><button class="btn" id="nd-add">Add this date</button></div>
+  </div>` : ""}
   <div class="notes">
     <label class="eyebrow" for="note-${d.id}">Our notes on this decision</label>
     <textarea id="note-${d.id}" data-note="${d.id}" placeholder="Quotes, contacts, things to ask the venue…">${esc(state.plan.notes[d.id] || "")}</textarea>
@@ -775,6 +799,7 @@ function renderGuests() {
     <div class="gstats">
       <span><b class="num">${headcount(inv)}</b>inviting</span>
       <span><b class="num">${headcount(state.guests.filter(g => g.status === "maybe"))}</b>maybe</span>
+      <span><b class="num">${plusOnesOffered(inv)}</b>plus-ones offered</span>
       ${EVENTS.map(e => `<span><b class="num">${headcount(attendees(e.key))}</b>${esc(e.label.toLowerCase())}</span>`).join("")}
     </div>
   </div>
@@ -786,10 +811,11 @@ function renderGuests() {
   </div>
   <div class="gtable-wrap">
     ${list.length ? `<table class="gtable">
-      <thead><tr><th>Name</th><th>Side</th><th>Group</th><th class="r">Heads</th><th>Status</th><th>Events</th></tr></thead>
+      <thead><tr><th>Name</th><th>Side</th><th>Group</th><th class="r">Heads</th><th title="Offer a plus-one">+1</th><th>Status</th><th>Events</th></tr></thead>
       <tbody>${list.map(g => `<tr data-guest="${g.id}" tabindex="0">
         <td class="name">${esc(g.name)}${g.notes ? `<span class="sub small muted" style="display:block;font-weight:400">${esc(g.notes)}</span>` : ""}</td>
-        <td>${esc(g.side || "")}</td><td>${esc(g.group || "")}</td><td class="r num">${Number(g.party) || 1}</td>
+        <td>${esc(g.side || "")}</td><td>${esc(g.group || "")}</td><td class="r num">${Number(g.party) || 1}${g.plusOne ? " <span class=\"muted\">+1</span>" : ""}</td>
+        <td><input type="checkbox" class="po" data-plusone="${g.id}" ${g.plusOne ? "checked" : ""} aria-label="Plus-one for ${esc(g.name)}"></td>
         <td><span class="status ${esc(g.status)}">${g.status === "invited" ? "Inviting" : g.status === "maybe" ? "Maybe" : "Not inviting"}</span></td>
         <td><div class="evdots">${EVENTS.map(e => `<span class="${g.events && g.events[e.key] ? "on" : ""}" title="${esc(e.label)}">${e.short}</span>`).join("")}</div></td>
       </tr>`).join("")}</tbody></table>`
@@ -799,7 +825,7 @@ function renderGuests() {
     <div class="panel bulk">
       <p class="eyebrow">Quick add</p>
       <h3>Paste a list</h3>
-      <p class="small muted" style="margin-bottom:8px">One guest or household per line. Add a number after a comma for head count, e.g. <code>The Nguyen family, 4</code>.</p>
+      <p class="small muted" style="margin-bottom:8px">One guest or household per line. Add a number after a comma for head count, e.g. <code>The Nguyen family, 4</code>. Toggle plus-ones in the +1 column afterwards.</p>
       <textarea id="bulk-text" placeholder="Aunt Carol&#10;Sam &amp; Priya Patel, 2&#10;The Nguyen family, 4"></textarea>
       <div class="row">
         <select id="bulk-side">${CONFIG.sides.map(s => `<option>${esc(s)}</option>`).join("")}</select>
@@ -822,13 +848,47 @@ function go(route) { state.route = route; try { location.hash = route; } catch {
 function pick(did, oid) {
   if (state.plan.picks[did] === oid) return;
   state.plan.picks[did] = oid; savePlan(); render();
-  const d = decision(did), o = byId(d.options, oid);
+  const d = decision(did), o = byId(optionsOf(d), oid);
   toast(`${d.title}: ${o.name}`);
 }
 function bindMain() {
   const main = $("#main");
   main.querySelectorAll("[data-route]").forEach(b => b.addEventListener("click", () => go(b.dataset.route)));
   main.querySelectorAll("[data-pick]").forEach(b => { b.addEventListener("click", () => pick(b.dataset.pick, b.dataset.option)); b.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(b.dataset.pick, b.dataset.option); } }); });
+  main.querySelectorAll("[data-remove-option]").forEach(b => b.addEventListener("click", e => {
+    e.stopPropagation();
+    const did = b.dataset.removeOption, oid = b.dataset.optionId;
+    const d = decision(did), o = byId(optionsOf(d), oid);
+    if (!confirm(`Remove "${o ? o.name : "this option"}" from ${d.title}?`)) return;
+    state.plan.customOptions[did] = customOptions(d).filter(x => x.id !== oid);
+    if (state.plan.picks[did] === oid) delete state.plan.picks[did];
+    savePlan(); render();
+  }));
+  const ndAdd = $("#nd-add"); if (ndAdd) ndAdd.addEventListener("click", () => {
+    const dateStr = $("#nd-date").value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { toast("Pick a date first"); $("#nd-date").focus(); return; }
+    const dt = new Date(dateStr + "T12:00:00");
+    if (optionsOf(decision("date")).some(x => x.date === dateStr)) { toast("That date is already on the list"); return; }
+    const label = $("#nd-name").value.trim();
+    const o = { id: "custom-" + uid(), custom: true, date: dateStr, costFactor: +$("#nd-factor").value || 1,
+      name: label || dt.toLocaleDateString("en-US", { month: "long", day: "numeric" }), desc: $("#nd-desc").value.trim() };
+    if (!state.plan.customOptions) state.plan.customOptions = {};
+    state.plan.customOptions.date = customOptions(decision("date")).concat([o]);
+    savePlan(); render();
+    toast(dt.getDay() === 6 ? `Added ${o.name}` : `Added ${o.name}. Heads up: that is a ${weekday(dt)}, not a Saturday.`);
+  });
+  const po = $("#po-rate"); if (po) {
+    po.addEventListener("input", () => {
+      state.plan.plusOneRate = +po.value;
+      $("#po-pct").textContent = po.value + "%";
+      $("#po-count").textContent = Math.round(plusOnesOffered(invitedGuests()) * plusOneRate() / 100);
+    });
+    po.addEventListener("change", () => { savePlan(); render(); });
+  }
+  main.querySelectorAll("[data-plusone]").forEach(c => {
+    c.addEventListener("click", e => e.stopPropagation());
+    c.addEventListener("change", () => { const g = byId(state.guests, c.dataset.plusone); if (g) saveGuest({ ...g, plusOne: c.checked }); });
+  });
   main.querySelectorAll("[data-clear]").forEach(b => b.addEventListener("click", () => { delete state.plan.picks[b.dataset.clear]; savePlan(); render(); }));
   main.querySelectorAll("[data-extra]").forEach(c => c.addEventListener("change", () => { state.plan.extras[c.dataset.extra] = c.checked; savePlan(); render(); }));
   main.querySelectorAll("[data-note]").forEach(t => {
@@ -853,7 +913,7 @@ async function bulkAdd() {
   const added = [];
   for (const line of lines) {
     const m = /^(.*?)(?:,\s*(\d+))?$/.exec(line);
-    const g = { id: uid(), name: (m[1] || line).trim(), side, group, party: Math.max(1, +m[2] || 1), status, events: { ...events }, notes: "", createdAt: Date.now() };
+    const g = { id: uid(), name: (m[1] || line).trim(), side, group, party: Math.max(1, +m[2] || 1), plusOne: false, status, events: { ...events }, notes: "", createdAt: Date.now() };
     added.push(g);
   }
   await saveGuests(added);
@@ -871,6 +931,7 @@ function openGuest(g) {
   $("#g-side").value = g ? g.side : CONFIG.sides[0];
   $("#g-group").value = g ? g.group : CONFIG.groups[0];
   $("#g-party").value = g ? (g.party || 1) : 1;
+  $("#g-plusone").checked = g ? !!g.plusOne : false;
   $("#g-status").value = g ? g.status : "invited";
   $("#g-notes").value = g ? (g.notes || "") : "";
   $("#g-delete").hidden = !g;
@@ -889,7 +950,7 @@ $("#guest-form").addEventListener("submit", async e => {
   const name = $("#g-name").value.trim(); if (!name) return;
   const events = {}; EVENTS.forEach(ev => events[ev.key] = $("#g-ev-" + ev.key).checked);
   const g = { id: editing ? editing.id : uid(), name, side: $("#g-side").value, group: $("#g-group").value,
-    party: Math.max(1, +$("#g-party").value || 1), status: $("#g-status").value, events, notes: $("#g-notes").value.trim(),
+    party: Math.max(1, +$("#g-party").value || 1), plusOne: $("#g-plusone").checked, status: $("#g-status").value, events, notes: $("#g-notes").value.trim(),
     createdAt: editing ? (editing.createdAt || Date.now()) : Date.now() };
   $("#guest-dialog").close();
   await saveGuest(g); toast(editing ? "Guest updated" : "Guest added");

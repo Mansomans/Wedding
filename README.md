@@ -41,6 +41,7 @@ Environment variables the server uses:
 Open `public/index.html` and find the block marked `WEDDING WEEKEND — DATA BLOCK`.
 
 - `CONFIG` holds the hint text, sides and guest groups.
+- Dates added on the Date tab in the browser are stored in the database as `customOptions`, not in this file.
 - `DECISIONS` holds the five decisions and their options. To add an option,
   push a new object into that decision's `options` array. Only `id` and `name`
   are required; `fixed`, `perGuest`, `capacity`, `time`, `pros` and `cons`
