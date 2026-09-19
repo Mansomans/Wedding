@@ -119,7 +119,9 @@ function cleanCustomOption(o) {
   if (typeof o.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.date)) out.date = o.date;
   if (Number.isFinite(Number(o.costFactor))) out.costFactor = Math.min(3, Math.max(0.1, Number(o.costFactor)));
   for (const k of ["where", "desc", "time", "duration"]) if (o[k]) out[k] = String(o[k]).slice(0, 300);
-  for (const k of ["fixed", "perGuest", "capacity"]) if (Number.isFinite(Number(o[k]))) out[k] = Math.max(0, Number(o[k]));
+  for (const k of ["fixed", "perGuest", "capacity"]) if (o[k] !== undefined && Number.isFinite(Number(o[k]))) out[k] = Math.max(0, Number(o[k]));
+  for (const k of ["pros", "cons"]) if (Array.isArray(o[k])) out[k] = o[k].slice(0, 8).map(x => String(x).slice(0, 120)).filter(Boolean);
+  if (typeof o.link === "string" && /^https?:\/\/[^\s]{1,500}$/.test(o.link)) out.link = o.link;
   return out;
 }
 function cleanPlan(p) {
