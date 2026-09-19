@@ -202,12 +202,21 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .field.check label{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);padding:9px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
 
 /* ---------- dialog ---------- */
-dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:0;width:min(520px,calc(100vw - 32px));box-shadow:var(--shadow)}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:0;width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;box-shadow:var(--shadow)}
+dialog.wide{width:min(860px,calc(100vw - 32px))}
+dialog.wide .dlg{gap:12px;padding:18px 20px}
+dialog.wide .field input,dialog.wide .field select{padding:7px 9px;font-size:14px}
+dialog.wide .field{gap:3px;font-size:12px}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+@media (max-width:760px){.grid5{grid-template-columns:1fr 1fr 1fr}}
+@media (max-width:480px){.grid5{grid-template-columns:1fr 1fr}}
 dialog::backdrop{background:rgba(20,26,23,.45)}
 .dlg{padding:20px;display:grid;gap:14px}
 .dlg h3{font-size:26px}
 .field{display:grid;gap:4px;font-size:13px;color:var(--ink-2)}
-.field input,.field select{padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:15px;color:var(--ink)}
+.field input,.field select{width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:15px;color:var(--ink)}
+.field{min-width:0}
+.grid2>*,.grid3>*,.grid5>*{min-width:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 @media (max-width:480px){.grid3{grid-template-columns:1fr 1fr}}
@@ -282,7 +291,7 @@ dialog::backdrop{background:rgba(20,26,23,.45)}
     </div>
   </form>
 </dialog>
-<dialog id="option-dialog">
+<dialog id="option-dialog" class="wide">
   <form class="dlg" id="option-form" method="dialog">
     <h3 id="option-dialog-title">Add an option</h3>
     <div id="option-fields"></div>
@@ -505,7 +514,7 @@ const EXTRAS = [
 
 /* ---------------- state + storage ---------------- */
 const state = {
-  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {}, customOptions: {}, overrides: {}, plusOneRate: 100 },
+  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {}, customOptions: {}, overrides: {}, hidden: {}, plusOneRate: 100 },
   guests: [],           // [{id, name, side, group, party, status, events:{}, notes, createdAt}]
   storage: "loading",   // loading | server | offline
   route: "home",
@@ -517,7 +526,7 @@ function defaultExtras() { const o = {}; EXTRAS.forEach(e => o[e.id] = e.on); re
 function normalizePlan(p) {
   p = p || {};
   return { picks: p.picks || {}, extras: p.extras || defaultExtras(), notes: p.notes || {},
-    customOptions: p.customOptions || {}, overrides: p.overrides || {}, plusOneRate: typeof p.plusOneRate === "number" ? p.plusOneRate : 100 };
+    customOptions: p.customOptions || {}, overrides: p.overrides || {}, hidden: p.hidden || {}, plusOneRate: typeof p.plusOneRate === "number" ? p.plusOneRate : 100 };
 }
 
 /* API. Every call returns the full shared state, which we apply. */
@@ -585,7 +594,17 @@ const decision = id => byId(DECISIONS, id);
 const customOptions = d => Array.isArray(state.plan.customOptions?.[d.id]) ? state.plan.customOptions[d.id] : [];
 // Built-in options can be edited in the UI; the edits live in plan.overrides[decision][option].
 const overrideFor = (d, oid) => state.plan.overrides?.[d.id]?.[oid] || null;
-const optionsOf = d => d.options.map(o => { const ov = overrideFor(d, o.id); return ov ? { ...o, ...ov, edited: true } : o; }).concat(customOptions(d));
+const hiddenIds = d => Array.isArray(state.plan.hidden?.[d.id]) ? state.plan.hidden[d.id] : [];
+const withOverride = (d, o) => { const ov = overrideFor(d, o.id); return ov ? { ...o, ...ov, edited: true } : o; };
+// Removed built-in options are hidden (plan.hidden) rather than deleted, so they can be restored.
+const optionsOf = d => d.options.filter(o => !hiddenIds(d).includes(o.id)).map(o => withOverride(d, o)).concat(customOptions(d));
+const hiddenOptions = d => d.options.filter(o => hiddenIds(d).includes(o.id)).map(o => withOverride(d, o));
+function removeOption(d, o) {
+  if (o.custom) state.plan.customOptions[d.id] = customOptions(d).filter(x => x.id !== o.id);
+  else { if (!state.plan.hidden) state.plan.hidden = {}; state.plan.hidden[d.id] = hiddenIds(d).concat([o.id]); }
+  if (state.plan.picks[d.id] === o.id) delete state.plan.picks[d.id];
+  savePlan(); render(); toast(`Removed ${o.name}`);
+}
 function pickedOption(d) { const oid = state.plan.picks[d.id]; return oid ? byId(optionsOf(d), oid) : null; }
 function invitedGuests() { return state.guests.filter(g => g.status === "invited"); }
 function plusOneRate() { const r = state.plan.plusOneRate; return typeof r === "number" ? r : 100; }
@@ -787,12 +806,14 @@ function renderDecision(d) {
         <div class="cardtools">
           <button class="linkish" data-edit-option="${d.id}" data-option-id="${o.id}">Edit</button>
           ${o.edited ? `<button class="linkish rm" data-reset-option="${d.id}" data-option-id="${o.id}">Reset to original</button>` : ""}
-          ${o.custom ? `<button class="linkish rm" data-remove-option="${d.id}" data-option-id="${o.id}">Remove</button>` : ""}
+          <button class="linkish rm" data-remove-option="${d.id}" data-option-id="${o.id}">Remove</button>
         </div>
       </div>`;
     }).join("")}
   </div>
-  <div class="addrow"><button class="btn ghost" id="nd-open">Add an option to ${esc(d.title)}</button></div>
+  <div class="addrow"><button class="btn ghost" id="nd-open">Add an option to ${esc(d.title)}</button>
+    ${hiddenOptions(d).length ? `<p class="small muted" style="margin-top:10px">Removed: ${hiddenOptions(d).map(o => `${esc(o.name)} <button class="linkish" data-restore-option="${d.id}" data-option-id="${o.id}">restore</button>`).join(" · ")}</p>` : ""}
+  </div>
   <div class="notes">
     <label class="eyebrow" for="note-${d.id}">Our notes on this decision</label>
     <textarea id="note-${d.id}" data-note="${d.id}" placeholder="Quotes, contacts, things to ask the venue…">${esc(state.plan.notes[d.id] || "")}</textarea>
@@ -872,11 +893,13 @@ function bindMain() {
   main.querySelectorAll("[data-pick]").forEach(b => { b.addEventListener("click", () => pick(b.dataset.pick, b.dataset.option)); b.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(b.dataset.pick, b.dataset.option); } }); });
   main.querySelectorAll("[data-remove-option]").forEach(b => b.addEventListener("click", e => {
     e.stopPropagation();
-    const did = b.dataset.removeOption, oid = b.dataset.optionId;
-    const d = decision(did), o = byId(optionsOf(d), oid);
-    if (!confirm(`Remove "${o ? o.name : "this option"}" from ${d.title}?`)) return;
-    state.plan.customOptions[did] = customOptions(d).filter(x => x.id !== oid);
-    if (state.plan.picks[did] === oid) delete state.plan.picks[did];
+    const d = decision(b.dataset.removeOption), o = byId(optionsOf(d), b.dataset.optionId);
+    if (!o || !confirm(`Remove "${o.name}" from ${d.title}?${o.custom ? "" : " You can restore it later."}`)) return;
+    removeOption(d, o);
+  }));
+  main.querySelectorAll("[data-restore-option]").forEach(b => b.addEventListener("click", () => {
+    const did = b.dataset.restoreOption;
+    state.plan.hidden[did] = hiddenIds(decision(did)).filter(id => id !== b.dataset.optionId);
     savePlan(); render();
   }));
   const ndOpen = $("#nd-open"); if (ndOpen) ndOpen.addEventListener("click", () => openOption(decision(state.route), null));
@@ -980,9 +1003,8 @@ const OPTION_FIELDS = {
   ],
   event: [
     { grid: 2, fields: [["name", "Name", "text", "e.g. Rooftop at the Grand Hotel"], ["where", "Where", "text", "Venue, neighborhood or address"]] },
-    { grid: 3, fields: [["time", "Start time", "text", "6:30 PM"], ["duration", "Duration", "text", "3 hrs"], ["capacity", "Capacity", "number", "max guests"]] },
-    { grid: 3, fields: [["fixed", "Fixed cost ($)", "number", "room fee, rentals"], ["perGuest", "Per guest ($)", "number", "food and drink"], ["link", "Website", "url", "https://"]] },
-    { fields: [["desc", "Description", "text", "What it is like, what is included"]] },
+    { grid: 5, fields: [["time", "Start time", "text", "6:30 PM"], ["duration", "Duration", "text", "3 hrs"], ["capacity", "Capacity", "number", "max guests"], ["fixed", "Fixed cost ($)", "number", "room, rentals"], ["perGuest", "Per guest ($)", "number", "food, drink"]] },
+    { grid: 2, fields: [["desc", "Description", "text", "What it is like, what is included"], ["link", "Website", "url", "https://"]] },
     { grid: 2, fields: [["pros", "Pros (comma separated)", "text", "Walkable, great food"], ["cons", "Cons (comma separated)", "text", "Loud, hard parking"]] },
     { grid: 2, fields: [["estimated", "Price status", "select", [["", "Quoted or confirmed price"], ["1", "Estimate, no final price yet"]]], ["estimateNote", "Estimate note", "text", "e.g. waiting on the venue's quote"]] },
   ],
@@ -1005,18 +1027,16 @@ function openOption(d, o) {
     if (type === "select") return `<div class="field"><span>${label}</span><select id="${id}">${extra.map(([v, t]) => `<option value="${v}" ${String(val) === v ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
     return `<div class="field"><span>${label}</span><input id="${id}" type="${type}" value="${esc(val)}" placeholder="${esc(extra || "")}" ${type === "number" ? 'min="0"' : ""} ${type === "date" ? 'min="2027-01-01" max="2028-12-31"' : ""}></div>`;
   }).join("")}</div>`).join("");
-  $("#o-remove").hidden = !(o && o.custom);
+  $("#o-remove").hidden = !o;
   $("#o-save").textContent = o ? "Save changes" : "Add option";
   $("#option-dialog").showModal();
   setTimeout(() => $(kind === "date" ? "#o-date" : "#o-name").focus(), 30);
 }
 $("#o-cancel").addEventListener("click", () => $("#option-dialog").close());
 $("#o-remove").addEventListener("click", () => {
-  const { d, o } = editingOption || {}; if (!o || !o.custom) return;
-  if (!confirm(`Remove "${o.name}" from ${d.title}?`)) return;
-  state.plan.customOptions[d.id] = customOptions(d).filter(x => x.id !== o.id);
-  if (state.plan.picks[d.id] === o.id) delete state.plan.picks[d.id];
-  $("#option-dialog").close(); savePlan(); render(); toast("Option removed");
+  const { d, o } = editingOption || {}; if (!o) return;
+  if (!confirm(`Remove "${o.name}" from ${d.title}?${o.custom ? "" : " You can restore it later."}`)) return;
+  $("#option-dialog").close(); removeOption(d, o);
 });
 $("#option-form").addEventListener("submit", e => {
   e.preventDefault();

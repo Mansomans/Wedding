@@ -151,10 +151,12 @@ function cleanPlan(p) {
       for (const [oid, o] of Object.entries(m).slice(0, 50)) { const c = cleanOverride(o); if (c && /^[\w.-]{1,60}$/.test(oid)) overrides[did][oid] = c; }
     }
   }
+  const hidden = {};
+  if (isObj(p.hidden)) for (const [did, ids] of Object.entries(p.hidden)) if (/^[\w-]{1,40}$/.test(did) && Array.isArray(ids)) hidden[did] = ids.filter(id => typeof id === "string" && /^[\w.-]{1,60}$/.test(id)).slice(0, 100);
   const rate = Number(p.plusOneRate);
   return {
     picks: isObj(p.picks) ? p.picks : {}, extras: isObj(p.extras) ? p.extras : {}, notes: isObj(p.notes) ? p.notes : {},
-    customOptions, overrides, plusOneRate: Number.isFinite(rate) ? Math.min(100, Math.max(0, Math.round(rate))) : 100,
+    customOptions, overrides, hidden, plusOneRate: Number.isFinite(rate) ? Math.min(100, Math.max(0, Math.round(rate))) : 100,
   };
 }
 function cleanGuest(g) {
