@@ -15,6 +15,7 @@ const SITE_PASSWORD = (process.env.SITE_PASSWORD || "09102026").replace(/\D/g, "
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 const SESSION_DAYS = 30;
 const IS_PROD = process.env.NODE_ENV === "production" || !!process.env.RENDER;
+if (!process.env.DATABASE_URL && IS_PROD) console.error("DATABASE_URL is not set: data is being written to the local disk and WILL BE LOST on the next deploy or restart. Attach a Postgres database and set DATABASE_URL.");
 if (!process.env.SITE_PASSWORD) console.warn("SITE_PASSWORD not set; using the built-in default.");
 if (!process.env.SESSION_SECRET) console.warn("SESSION_SECRET not set; sessions reset on every restart.");
 
@@ -200,7 +201,7 @@ app.post("/api/login", (req, res) => {
 app.post("/api/logout", (req, res) => { clearSession(res); res.json({ ok: true }); });
 
 app.get("/api/state", requireAuth, async (req, res, next) => {
-  try { res.json(await store.getState()); } catch (e) { next(e); }
+  try { res.json({ ...(await store.getState()), storage: STORAGE_KIND, persistent: STORAGE_KIND === "postgres" || !IS_PROD }); } catch (e) { next(e); }
 });
 app.put("/api/plan", requireAuth, async (req, res, next) => {
   try {
@@ -266,7 +267,8 @@ app.get("/api/route", requireAuth, async (req, res, next) => {
   }
 });
 
-app.get("/healthz", (req, res) => res.type("text").send("ok"));
+const STORAGE_KIND = process.env.DATABASE_URL ? "postgres" : "file";
+app.get("/healthz", (req, res) => res.type("text").send(`ok storage=${STORAGE_KIND}`));
 
 app.use(express.static(path.join(__dirname, "public"), { extensions: ["html"] }));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));

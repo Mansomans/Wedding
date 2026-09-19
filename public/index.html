@@ -56,6 +56,8 @@ button{cursor:pointer}
 
 /* ---------- shell ---------- */
 #app{min-height:100%}
+.warnbar{max-width:1120px;margin:16px auto -8px;padding:12px 16px;border:1px solid var(--bad);border-radius:var(--radius);background:#FBEDEB;color:var(--bad);font-size:14px}
+.warnbar code{font-family:ui-monospace,Menlo,monospace;font-size:13px}
 .topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
 .topbar-inner{max-width:1120px;margin:0 auto;padding:12px 16px 0;display:flex;flex-direction:column;gap:8px}
 .brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
@@ -264,6 +266,7 @@ dialog::backdrop{background:rgba(20,26,23,.45)}
       <nav class="tabs" id="tabs" aria-label="Sections"></nav>
     </div>
   </header>
+  <div id="storage-warning" class="warnbar" hidden><b>Data is not being saved to a database.</b> The server has no <code>DATABASE_URL</code>, so everything entered here is written to a temporary disk that Render erases on every deploy. Attach a Postgres database in Render before adding more guests.</div>
   <main id="main"></main>
 </div>
 
@@ -549,6 +552,7 @@ function applyState(st, { force = false } = {}) {
   const busy = document.getElementById("guest-dialog").open || document.getElementById("option-dialog").open || (document.activeElement && /^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName) && document.activeElement.id !== "g-search");
   if (busy && !force) return;
   serverVersion = st.version || 0;
+  state.persistent = st.persistent !== false;
   if (!planDirty) state.plan = normalizePlan(st.plan); // keep local picks while a write is pending
   state.guests = Array.isArray(st.guests) ? st.guests : [];
   state.storage = "server";
@@ -663,6 +667,8 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&a
 function renderSync() {
   const el = $("#sync"); if (!el) return;
   el.className = "sync " + state.storage;
+  const warn = document.getElementById("storage-warning");
+  if (warn) warn.hidden = state.persistent !== false;
   $("#sync-text").textContent = state.storage === "server" ? "Shared, saves for both of us" : state.storage === "offline" ? "Offline, reconnecting…" : "Connecting…";
 }
 
