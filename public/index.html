@@ -104,6 +104,12 @@ main{max-width:1120px;margin:0 auto;padding-block:24px 64px;padding-inline:16px}
 .chip:hover{border-color:var(--accent);color:var(--accent)}
 .warnline{color:var(--warn);font-size:13px;margin-top:8px}
 
+.travel{margin-bottom:20px}
+.travel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.travel-mode{display:grid;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface-2)}
+.travel-mode .v{font-family:var(--display);font-size:30px;font-weight:600;line-height:1.1}
+.maplink{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+a.chip{text-decoration:none}
 .budget{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px}
 @media (max-width:760px){.budget{grid-template-columns:1fr}}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 16px}
@@ -588,6 +594,10 @@ function connect() {
 
 /* ---------------- derived numbers ---------------- */
 const fmt$ = n => "$" + Math.round(n).toLocaleString("en-US");
+const mapsSearch = addr => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addr);
+const mapsDir = (a, b, mode) => `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(a)}&destination=${encodeURIComponent(b)}&travelmode=${mode}`;
+const fmtMiles = m => { const mi = m / 1609.344; return (mi < 10 ? mi.toFixed(1) : Math.round(mi)) + " mi"; };
+const fmtMins = sec => { const m = Math.round(sec / 60); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} hr ${m % 60} min`; };
 const byId = (arr, id) => arr.find(x => x.id === id);
 const decision = id => byId(DECISIONS, id);
 // Built-in options from the data block plus any the couple added in the UI (stored in the plan).
@@ -708,6 +718,8 @@ function renderHome() {
     </div>
   </div>
 
+  ${renderTravel()}
+
   <div class="budget">
     <div class="panel">
       <p class="eyebrow">Estimate</p>
@@ -754,6 +766,45 @@ function renderHome() {
   </div>`;
 }
 
+/* Mass -> reception travel. Results come from the server and are cached per address pair. */
+const travelCache = {};
+function travelPair() {
+  const m = pickedOption(decision("mass")), r = pickedOption(decision("reception"));
+  return { m, r, from: m && m.address, to: r && r.address };
+}
+function renderTravel() {
+  const { m, r, from, to } = travelPair();
+  if (!m || !r) return "";
+  let body;
+  if (!from || !to) {
+    const missing = [!from && `the Mass (${m.name})`, !to && `the reception (${r.name})`].filter(Boolean).join(" and ");
+    body = `<p class="small muted">Add a street address to ${esc(missing)} with the Edit link on that tab, and the driving and walking distance will show here.</p>`;
+  } else {
+    const key = from + "|" + to, t = travelCache[key];
+    if (!t) { loadTravel(key, from, to); body = `<p class="small muted">Working out the route…</p>`; }
+    else if (t.error) body = `<p class="small" style="color:var(--warn)">${esc(t.error)}</p>`;
+    else body = `<div class="travel-grid">
+        <div class="travel-mode"><span class="eyebrow">Driving</span><span class="v num">${fmtMins(t.driving.seconds)}</span><span class="small muted num">${fmtMiles(t.driving.meters)} · typical traffic not included</span></div>
+        <div class="travel-mode"><span class="eyebrow">Walking</span><span class="v num">${fmtMins(t.walking.seconds)}</span><span class="small muted num">${fmtMiles(t.walking.meters)}${t.walking.meters > 2400 ? " · too far for most guests in wedding shoes" : ""}</span></div>
+      </div>`;
+    body += `<div class="chips" style="margin-top:12px"><a class="chip" href="${mapsDir(from, to, "driving")}" target="_blank" rel="noopener">Driving directions</a><a class="chip" href="${mapsDir(from, to, "walking")}" target="_blank" rel="noopener">Walking directions</a></div>`;
+  }
+  return `<div class="panel travel" id="travel">
+    <p class="eyebrow">Between the Mass and the reception</p>
+    <h3>${esc(m.name)} → ${esc(r.name)}</h3>
+    ${from && to ? `<p class="small muted" style="margin-bottom:10px">${esc(from)} → ${esc(to)}</p>` : ""}
+    ${body}
+  </div>`;
+}
+async function loadTravel(key, from, to) {
+  if (travelCache[key] === "loading") return;
+  travelCache[key] = "loading";
+  try { travelCache[key] = await api("GET", `/api/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`); }
+  catch (e) { travelCache[key] = { error: e.message === "locked" ? "Signed out." : e.message }; }
+  const el = document.getElementById("travel");
+  if (el && state.route === "home") { el.outerHTML = renderTravel(); }
+}
+
 function renderSlot(d) {
   const o = pickedOption(d);
   if (!o) {
@@ -766,6 +817,7 @@ function renderSlot(d) {
   return `<div class="slot"><div class="time">${esc(o.time || "")}</div>
     <div class="card"><p class="eyebrow">${esc(d.title)}</p><h4>${esc(o.name)}</h4>
     ${o.where ? `<p class="where">${esc(o.where)}</p>` : ""}
+    ${o.address ? `<p class="where"><a class="maplink" href="${mapsSearch(o.address)}" target="_blank" rel="noopener">${esc(o.address)}</a></p>` : ""}
     <div class="meta"><span><b class="num">${n}</b> guests</span>${o.duration ? `<span>${esc(o.duration)}</span>` : ""}<span><b class="num">${o.estimated ? "~" : ""}${fmt$(optionCost(d, o, n))}</b>${o.estimated ? ` <span class="tag">price TBD</span>` : ""}</span></div>
     ${over ? `<p class="warnline">Over capacity: ${o.capacity} max, ${n} on the list.</p>` : ""}
     </div></div>`;
@@ -788,7 +840,7 @@ function renderDecision(d) {
       const over = o.capacity && n > o.capacity;
       const dateObj = o.date ? new Date(o.date + "T12:00:00") : null;
       return `<div class="opt ${isPicked ? "picked" : ""}" data-pick="${d.id}" data-option="${o.id}" role="button" tabindex="0" aria-pressed="${isPicked}">
-        <div class="top"><div><h3>${esc(o.name)}</h3>${o.where ? `<p class="where">${esc(o.where)}</p>` : ""}${dateObj ? `<p class="where">${longDate(dateObj)}</p>` : ""}</div><span class="mark">${isPicked ? "✓" : ""}</span></div>
+        <div class="top"><div><h3>${esc(o.name)}</h3>${o.where ? `<p class="where">${esc(o.where)}</p>` : ""}${o.address ? `<p class="where"><a class="maplink" href="${mapsSearch(o.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(o.address)}</a></p>` : ""}${dateObj ? `<p class="where">${longDate(dateObj)}</p>` : ""}</div><span class="mark">${isPicked ? "✓" : ""}</span></div>
         ${o.desc ? `<p class="desc">${esc(o.desc)}</p>` : ""}
         <div class="facts">
           ${o.time ? `<div><b>${esc(o.time)}</b>Start${o.duration ? ` · ${esc(o.duration)}` : ""}</div>` : ""}
@@ -1002,7 +1054,8 @@ const OPTION_FIELDS = {
     { fields: [["desc", "Why this date?", "text", "Notes, conflicts, who is in town"]] },
   ],
   event: [
-    { grid: 2, fields: [["name", "Name", "text", "e.g. Rooftop at the Grand Hotel"], ["where", "Where", "text", "Venue, neighborhood or address"]] },
+    { grid: 2, fields: [["name", "Name", "text", "e.g. Rooftop at the Grand Hotel"], ["where", "Where", "text", "Venue name or neighborhood"]] },
+    { fields: [["address", "Street address (used for the Mass-to-reception distance on the home page)", "text", "123 Main St, City, ST 12345"]] },
     { grid: 5, fields: [["time", "Start time", "text", "6:30 PM"], ["duration", "Duration", "text", "3 hrs"], ["capacity", "Capacity", "number", "max guests"], ["fixed", "Fixed cost ($)", "number", "room, rentals"], ["perGuest", "Per guest ($)", "number", "food, drink"]] },
     { grid: 2, fields: [["desc", "Description", "text", "What it is like, what is included"], ["link", "Website", "url", "https://"]] },
     { grid: 2, fields: [["pros", "Pros (comma separated)", "text", "Walkable, great food"], ["cons", "Cons (comma separated)", "text", "Loud, hard parking"]] },
@@ -1054,7 +1107,7 @@ $("#option-form").addEventListener("submit", e => {
     if (dt.getDay() !== 6) toast(`Heads up: that is a ${weekday(dt)}, not a Saturday.`);
   } else {
     if (!v("name")) { toast("Give the option a name"); $("#o-name").focus(); return; }
-    fields = { name: v("name"), where: v("where"), time: v("time"), duration: v("duration"), capacity: num("capacity"),
+    fields = { name: v("name"), where: v("where"), address: v("address"), time: v("time"), duration: v("duration"), capacity: num("capacity"),
       fixed: num("fixed") || 0, perGuest: num("perGuest") || 0, desc: v("desc"), pros: list("pros"), cons: list("cons"),
       link: /^https?:\/\//.test(v("link")) ? v("link") : undefined, estimated: v("estimated") === "1", estimateNote: v("estimateNote") };
   }
@@ -1074,7 +1127,7 @@ $("#option-form").addEventListener("submit", e => {
     const base = byId(d.options, o.id);
     const ov = {};
     for (const [k, val] of Object.entries(fields)) if (JSON.stringify(val) !== JSON.stringify(base[k])) ov[k] = val;
-    for (const k of ["where", "time", "duration", "capacity", "desc", "pros", "cons", "link", "estimateNote"]) if (!(k in fields) && base[k] !== undefined) ov[k] = k === "pros" || k === "cons" ? [] : k === "capacity" ? 0 : "";
+    for (const k of ["where", "address", "time", "duration", "capacity", "desc", "pros", "cons", "link", "estimateNote"]) if (!(k in fields) && base[k] !== undefined) ov[k] = k === "pros" || k === "cons" ? [] : k === "capacity" ? 0 : "";
     if (!("estimated" in fields) && base.estimated) ov.estimated = false;
     if (Object.keys(ov).length) state.plan.overrides[d.id][o.id] = ov; else delete state.plan.overrides[d.id][o.id];
     toast("Saved");

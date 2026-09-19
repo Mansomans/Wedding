@@ -60,3 +60,12 @@ All routes except login require the session cookie set by a successful login.
 | `PUT /api/plan` | replaces the plan (picks, extras, notes) |
 | `PUT /api/guests` | upserts one guest or an array of guests |
 | `DELETE /api/guests/:id` | removes a guest |
+
+## Distances
+
+When the picked Mass and reception options both have a street address, the
+home page shows driving and walking time between them. The server geocodes
+addresses with OpenStreetMap's Nominatim and routes with the OSRM servers run
+by FOSSGIS (routing.openstreetmap.de), caching each result in the database.
+Set `CONTACT_URL` to identify the app to those services (defaults to the
+site's URL).

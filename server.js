@@ -28,7 +28,10 @@ class PgStore {
   async init() {
     await this.pool.query(`CREATE TABLE IF NOT EXISTS plan (id int PRIMARY KEY, data jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())`);
     await this.pool.query(`CREATE TABLE IF NOT EXISTS guests (id text PRIMARY KEY, data jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())`);
+    await this.pool.query(`CREATE TABLE IF NOT EXISTS cache (key text PRIMARY KEY, data jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())`);
   }
+  async cacheGet(key) { const r = await this.pool.query(`SELECT data FROM cache WHERE key = $1`, [key]); return r.rows[0]?.data || null; }
+  async cacheSet(key, data) { await this.pool.query(`INSERT INTO cache (key, data, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`, [key, data]); }
   async getState() {
     const [p, g] = await Promise.all([
       this.pool.query(`SELECT data, updated_at FROM plan WHERE id = 1`),
@@ -52,9 +55,11 @@ class PgStore {
 }
 
 class FileStore {
-  constructor(file) { this.file = file; this.data = { plan: null, guests: {}, version: 0 }; }
+  constructor(file) { this.file = file; this.data = { plan: null, guests: {}, cache: {}, version: 0 }; }
+  async cacheGet(key) { return (this.data.cache || {})[key] || null; }
+  async cacheSet(key, data) { if (!this.data.cache) this.data.cache = {}; this.data.cache[key] = data; this.save(); }
   async init() {
-    try { this.data = JSON.parse(fs.readFileSync(this.file, "utf8")); } catch { /* fresh */ }
+    try { this.data = { cache: {}, ...JSON.parse(fs.readFileSync(this.file, "utf8")) }; } catch { /* fresh */ }
   }
   save() { this.data.version = Date.now(); fs.mkdirSync(path.dirname(this.file), { recursive: true }); fs.writeFileSync(this.file, JSON.stringify(this.data, null, 2)); }
   async getState() {
@@ -116,7 +121,7 @@ const isObj = v => v && typeof v === "object" && !Array.isArray(v);
 function cleanOptionFields(o, out) {
   if (typeof o.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.date)) out.date = o.date;
   if (Number.isFinite(Number(o.costFactor))) out.costFactor = Math.min(3, Math.max(0.1, Number(o.costFactor)));
-  for (const k of ["where", "desc", "time", "duration"]) if (o[k]) out[k] = String(o[k]).slice(0, 300);
+  for (const k of ["where", "address", "desc", "time", "duration"]) if (o[k]) out[k] = String(o[k]).slice(0, 300);
   for (const k of ["fixed", "perGuest", "capacity"]) if (o[k] !== undefined && Number.isFinite(Number(o[k]))) out[k] = Math.max(0, Number(o[k]));
   for (const k of ["pros", "cons"]) if (Array.isArray(o[k])) out[k] = o[k].slice(0, 8).map(x => String(x).slice(0, 120)).filter(Boolean);
   if (typeof o.link === "string" && /^https?:\/\/[^\s]{1,500}$/.test(o.link)) out.link = o.link;
@@ -217,6 +222,50 @@ app.put("/api/guests", requireAuth, async (req, res, next) => {
 app.delete("/api/guests/:id", requireAuth, async (req, res, next) => {
   try { await store.deleteGuest(req.params.id); res.json(await store.getState()); } catch (e) { next(e); }
 });
+/* ---------------- travel: geocode with Nominatim, route with OSRM ---------------- */
+const UA = `wedding-weekend-planner/1.0 (${process.env.CONTACT_URL || "https://cashwedding.org"})`;
+const norm = a => String(a || "").trim().replace(/\s+/g, " ").slice(0, 300);
+let lastGeocodeAt = 0;
+async function geocode(address) {
+  const key = "geo:" + address.toLowerCase();
+  const hit = await store.cacheGet(key);
+  if (hit) return hit;
+  // Nominatim asks for at most one request per second.
+  const wait = lastGeocodeAt + 1100 - Date.now(); if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  lastGeocodeAt = Date.now();
+  const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(address), { headers: { "User-Agent": UA, "Accept-Language": "en" } });
+  if (!r.ok) throw Object.assign(new Error("Geocoding service unavailable"), { status: 502 });
+  const list = await r.json();
+  if (!list.length) throw Object.assign(new Error(`Could not find "${address}" on the map. Try a fuller street address.`), { status: 404 });
+  const out = { lat: +list[0].lat, lon: +list[0].lon, display: list[0].display_name };
+  await store.cacheSet(key, out);
+  return out;
+}
+async function route(profile, a, b) {
+  const r = await fetch(`https://routing.openstreetmap.de/routed-${profile}/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`, { headers: { "User-Agent": UA } });
+  if (!r.ok) throw Object.assign(new Error("Routing service unavailable"), { status: 502 });
+  const j = await r.json();
+  if (j.code !== "Ok" || !j.routes?.length) throw Object.assign(new Error("No route found between those two places"), { status: 404 });
+  return { meters: j.routes[0].distance, seconds: j.routes[0].duration };
+}
+app.get("/api/route", requireAuth, async (req, res, next) => {
+  try {
+    const from = norm(req.query.from), to = norm(req.query.to);
+    if (!from || !to) return res.status(400).json({ error: "from and to are required" });
+    const key = "route:" + [from, to].map(x => x.toLowerCase()).join("|");
+    const hit = await store.cacheGet(key);
+    if (hit) return res.json(hit);
+    const a = await geocode(from), b = await geocode(to);
+    const [car, foot] = await Promise.all([route("car", a, b), route("foot", a, b)]);
+    const out = { from: a, to: b, driving: car, walking: foot, computedAt: Date.now() };
+    await store.cacheSet(key, out);
+    res.json(out);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
 
 app.use(express.static(path.join(__dirname, "public"), { extensions: ["html"] }));
