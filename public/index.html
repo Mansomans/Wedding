@@ -6,6 +6,9 @@
 <meta name="color-scheme" content="light">
 <meta name="robots" content="noindex, nofollow">
 <title>Our Wedding Weekend</title>
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Karla:wght@400;500;600;700&display=swap">
 <style>
@@ -38,7 +41,7 @@ button{cursor:pointer}
 /* ---------- gate ---------- */
 #gate{min-height:100%;display:grid;place-items:center;padding:24px 16px;background:var(--bg)}
 .gate-card{width:100%;max-width:380px;text-align:center;display:grid;gap:18px}
-.monogram{width:72px;height:72px;margin:0 auto;border:1.5px solid var(--gold);border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:30px;font-style:italic;color:var(--gold)}
+.monogram{width:96px;height:96px;margin:0 auto;display:block}
 .gate-card h1{font-size:40px;font-style:italic}
 .gate-form{display:grid;gap:10px}
 .gate-form input{padding:12px 14px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);text-align:center;letter-spacing:.2em;font-size:18px}
@@ -241,7 +244,7 @@ dialog::backdrop{background:rgba(20,26,23,.45)}
 
 <div id="gate">
   <div class="gate-card">
-    <div class="monogram">&amp;</div>
+    <img class="monogram" src="/icon.svg" alt="Two rings and an ampersand" width="96" height="96">
     <div>
       <p class="eyebrow">Planning the weekend</p>
       <h1>Our Wedding</h1>
