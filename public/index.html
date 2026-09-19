@@ -915,7 +915,7 @@ function renderGuests() {
   <div class="ftotals">
     <span><b class="num">${list.length}</b> ${list.length === 1 ? "entry" : "entries"}${filtering ? ` of ${state.guests.length}` : ""}</span>
     <span><b class="num">${headcount(list, 100)}</b> heads listed</span>
-    <span><b class="num">${headcount(shownInvited)}</b> expected${filtering ? " from this filter" : ""}</span>
+    <span><b class="num">${headcount(shownInvited, 100)}</b> inviting incl. plus-ones${filtering ? " in this filter" : ""}</span>
     <span><b class="num">${plusOnesOffered(list)}</b> plus-ones</span>
     ${filtering ? `<button class="linkish" id="g-clear-filters">Clear filters</button>` : ""}
   </div>
