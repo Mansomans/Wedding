@@ -15,6 +15,7 @@ const SITE_PASSWORD = (process.env.SITE_PASSWORD || "09102026").replace(/\D/g, "
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 const SESSION_DAYS = 30;
 const IS_PROD = process.env.NODE_ENV === "production" || !!process.env.RENDER;
+const STORAGE_KIND = process.env.DATABASE_URL ? "postgres" : "file";
 if (!process.env.DATABASE_URL && IS_PROD) console.error("DATABASE_URL is not set: data is being written to the local disk and WILL BE LOST on the next deploy or restart. Attach a Postgres database and set DATABASE_URL.");
 if (!process.env.SITE_PASSWORD) console.warn("SITE_PASSWORD not set; using the built-in default.");
 if (!process.env.SESSION_SECRET) console.warn("SESSION_SECRET not set; sessions reset on every restart.");
@@ -157,8 +158,13 @@ function cleanPlan(p) {
       for (const [oid, o] of Object.entries(m).slice(0, 50)) { const c = cleanOverride(o); if (c && /^[\w.-]{1,60}$/.test(oid)) overrides[did][oid] = c; }
     }
   }
+  // hidden: { decisionId: { optionId: true } } (older plans stored arrays; convert them)
   const hidden = {};
-  if (isObj(p.hidden)) for (const [did, ids] of Object.entries(p.hidden)) if (/^[\w-]{1,40}$/.test(did) && Array.isArray(ids)) hidden[did] = ids.filter(id => typeof id === "string" && /^[\w.-]{1,60}$/.test(id)).slice(0, 100);
+  if (isObj(p.hidden)) for (const [did, v] of Object.entries(p.hidden)) {
+    if (!/^[\w-]{1,40}$/.test(did)) continue;
+    const ids = Array.isArray(v) ? v : isObj(v) ? Object.keys(v).filter(k => v[k]) : [];
+    hidden[did] = Object.fromEntries(ids.filter(id => typeof id === "string" && /^[\w.-]{1,60}$/.test(id)).slice(0, 100).map(id => [id, true]));
+  }
   const rate = Number(p.plusOneRate);
   return {
     picks: isObj(p.picks) ? p.picks : {}, extras: isObj(p.extras) ? p.extras : {}, notes: isObj(p.notes) ? p.notes : {},
@@ -203,14 +209,50 @@ app.post("/api/logout", (req, res) => { clearSession(res); res.json({ ok: true }
 app.get("/api/state", requireAuth, async (req, res, next) => {
   try { res.json({ ...(await store.getState()), storage: STORAGE_KIND, persistent: STORAGE_KIND === "postgres" || !IS_PROD }); } catch (e) { next(e); }
 });
-app.put("/api/plan", requireAuth, async (req, res, next) => {
+// Plan writes are patches merged into the stored plan, so two browsers never
+// overwrite each other's changes. Sections merge by key; a null deletes a key.
+const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2 };
+function mergePatch(target, patch, depth) {
+  const out = isObj(target) ? { ...target } : {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === null) delete out[k];
+    else if (depth > 1 && isObj(v) && isObj(out[k])) out[k] = mergePatch(out[k], v, depth - 1);
+    else if (depth > 1 && isObj(v)) out[k] = mergePatch({}, v, depth - 1);
+    else out[k] = v;
+  }
+  return out;
+}
+let planWriteChain = Promise.resolve();
+async function patchPlan(patch) {
+  const current = (await store.getState()).plan || {};
+  const next = { ...current };
+  for (const [sec, val] of Object.entries(patch)) {
+    if (sec === "plusOneRate") next.plusOneRate = val;
+    else if (sec in PATCH_DEPTH && isObj(val)) {
+      let base = current[sec];
+      if (sec === "hidden" && isObj(base)) base = Object.fromEntries(Object.entries(base).map(([d, v]) => [d, Array.isArray(v) ? Object.fromEntries(v.map(id => [id, true])) : v]));
+      next[sec] = mergePatch(base, val, PATCH_DEPTH[sec]);
+    }
+  }
+  const plan = cleanPlan(next);
+  if (!plan) throw Object.assign(new Error("bad plan"), { status: 400 });
+  await store.setPlan(plan);
+}
+const handlePlanWrite = async (req, res, next) => {
   try {
-    const plan = cleanPlan(req.body);
-    if (!plan) return res.status(400).json({ error: "bad plan" });
-    await store.setPlan(plan);
-    res.json(await store.getState());
-  } catch (e) { next(e); }
-});
+    if (!isObj(req.body)) return res.status(400).json({ error: "bad plan" });
+    // Serialize writes so concurrent patches from two browsers both land.
+    const run = planWriteChain.then(() => patchPlan(req.body));
+    planWriteChain = run.catch(() => {});
+    await run;
+    res.json({ ...(await store.getState()), storage: STORAGE_KIND, persistent: STORAGE_KIND === "postgres" || !IS_PROD });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+};
+app.patch("/api/plan", requireAuth, handlePlanWrite);
+app.put("/api/plan", requireAuth, handlePlanWrite); // older pages still open send full plans; merging them is harmless
 app.put("/api/guests", requireAuth, async (req, res, next) => {
   try {
     const list = (Array.isArray(req.body) ? req.body : [req.body]).map(cleanGuest);
@@ -267,7 +309,6 @@ app.get("/api/route", requireAuth, async (req, res, next) => {
   }
 });
 
-const STORAGE_KIND = process.env.DATABASE_URL ? "postgres" : "file";
 app.get("/healthz", (req, res) => res.type("text").send(`ok storage=${STORAGE_KIND}`));
 
 app.use(express.static(path.join(__dirname, "public"), { extensions: ["html"] }));

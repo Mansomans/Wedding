@@ -554,7 +554,9 @@ async function api(method, url, body) {
 function applyState(st, { force = false } = {}) {
   if (!st) return;
   // Do not yank the page out from under someone who is mid-edit.
-  const busy = document.getElementById("guest-dialog").open || document.getElementById("option-dialog").open || (document.activeElement && /^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName) && document.activeElement.id !== "g-search");
+  const ae = document.activeElement;
+  const busy = document.getElementById("guest-dialog").open || document.getElementById("option-dialog").open
+    || (ae && /^(TEXTAREA|INPUT)$/.test(ae.tagName) && ae.id !== "g-search" && ae.closest("#main"));
   if (busy && !force) return;
   serverVersion = st.version || 0;
   state.persistent = st.persistent !== false;
@@ -564,19 +566,42 @@ function applyState(st, { force = false } = {}) {
   render();
 }
 
-function savePlan() {
+/* Plan saves send only what changed, as a patch the server merges into the
+   shared plan. Sections merge by key (picks, notes, extras, hidden,
+   customOptions; overrides one level deeper); a null deletes that key. This
+   keeps two browsers from overwriting each other's changes. */
+const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2 };
+function mergePatch(target, patch, depth) {
+  const out = { ...(target || {}) };
+  for (const [k, v] of Object.entries(patch)) {
+    if (depth > 1 && v && typeof v === "object" && !Array.isArray(v) && out[k] && typeof out[k] === "object" && !Array.isArray(out[k])) out[k] = mergePatch(out[k], v, depth - 1);
+    else out[k] = v;
+  }
+  return out;
+}
+let pendingPatch = null, planInFlight = false;
+function savePlan(patch) {
+  pendingPatch = pendingPatch || {};
+  for (const [sec, val] of Object.entries(patch)) {
+    if (sec in PATCH_DEPTH) pendingPatch[sec] = mergePatch(pendingPatch[sec], val, PATCH_DEPTH[sec]);
+    else pendingPatch[sec] = val;
+  }
   planDirty = true;
   clearTimeout(planWriteTimer);
-  planWriteTimer = setTimeout(async () => {
-    const sent = JSON.stringify(state.plan);
-    try {
-      const st = await api("PUT", "/api/plan", state.plan);
-      serverVersion = st.version || serverVersion;
-      if (JSON.stringify(state.plan) === sent) planDirty = false; // nothing changed while in flight
-      else savePlan();
-    }
-    catch (e) { planDirty = false; if (e.message !== "locked") toast("Could not save: " + e.message); }
-  }, 300);
+  planWriteTimer = setTimeout(flushPlan, 300);
+}
+async function flushPlan() {
+  if (planInFlight || !pendingPatch) return;
+  const patch = pendingPatch; pendingPatch = null; planInFlight = true;
+  try {
+    const st = await api("PATCH", "/api/plan", patch);
+    planInFlight = false;
+    if (pendingPatch) flushPlan();
+    else { planDirty = false; applyState(st); }
+  } catch (e) {
+    planInFlight = false; planDirty = !!pendingPatch;
+    if (e.message !== "locked") toast("Could not save: " + e.message);
+  }
 }
 async function saveGuests(list) {
   try { applyState(await api("PUT", "/api/guests", list), { force: true }); }
@@ -613,16 +638,17 @@ const decision = id => byId(DECISIONS, id);
 const customOptions = d => Array.isArray(state.plan.customOptions?.[d.id]) ? state.plan.customOptions[d.id] : [];
 // Built-in options can be edited in the UI; the edits live in plan.overrides[decision][option].
 const overrideFor = (d, oid) => state.plan.overrides?.[d.id]?.[oid] || null;
-const hiddenIds = d => Array.isArray(state.plan.hidden?.[d.id]) ? state.plan.hidden[d.id] : [];
+const hiddenIds = d => { const h = state.plan.hidden?.[d.id]; return Array.isArray(h) ? h : h && typeof h === "object" ? Object.keys(h) : []; };
 const withOverride = (d, o) => { const ov = overrideFor(d, o.id); return ov ? { ...o, ...ov, edited: true } : o; };
 // Removed built-in options are hidden (plan.hidden) rather than deleted, so they can be restored.
 const optionsOf = d => d.options.filter(o => !hiddenIds(d).includes(o.id)).map(o => withOverride(d, o)).concat(customOptions(d));
 const hiddenOptions = d => d.options.filter(o => hiddenIds(d).includes(o.id)).map(o => withOverride(d, o));
 function removeOption(d, o) {
   if (o.custom) state.plan.customOptions[d.id] = customOptions(d).filter(x => x.id !== o.id);
-  else { if (!state.plan.hidden) state.plan.hidden = {}; state.plan.hidden[d.id] = hiddenIds(d).concat([o.id]); }
-  if (state.plan.picks[d.id] === o.id) delete state.plan.picks[d.id];
-  savePlan(); render(); toast(`Removed ${o.name}`);
+  else { if (!state.plan.hidden) state.plan.hidden = {}; state.plan.hidden[d.id] = Object.fromEntries(hiddenIds(d).concat([o.id]).map(id => [id, true])); }
+  const patch = o.custom ? { customOptions: { [d.id]: state.plan.customOptions[d.id] } } : { hidden: { [d.id]: { [o.id]: true } } };
+  if (state.plan.picks[d.id] === o.id) { delete state.plan.picks[d.id]; patch.picks = { [d.id]: null }; }
+  savePlan(patch); render(); toast(`Removed ${o.name}`);
 }
 function pickedOption(d) { const oid = state.plan.picks[d.id]; return oid ? byId(optionsOf(d), oid) : null; }
 function invitedGuests() { return state.guests.filter(g => g.status === "invited"); }
@@ -957,7 +983,7 @@ function renderGuests() {
 function go(route) { state.route = route; try { location.hash = route; } catch {} render(); window.scrollTo({ top: 0 }); }
 function pick(did, oid) {
   if (state.plan.picks[did] === oid) return;
-  state.plan.picks[did] = oid; savePlan(); render();
+  state.plan.picks[did] = oid; savePlan({ picks: { [did]: oid } }); render();
   const d = decision(did), o = byId(optionsOf(d), oid);
   toast(`${d.title}: ${o.name}`);
 }
@@ -973,8 +999,8 @@ function bindMain() {
   }));
   main.querySelectorAll("[data-restore-option]").forEach(b => b.addEventListener("click", () => {
     const did = b.dataset.restoreOption;
-    state.plan.hidden[did] = hiddenIds(decision(did)).filter(id => id !== b.dataset.optionId);
-    savePlan(); render();
+    state.plan.hidden[did] = Object.fromEntries(hiddenIds(decision(did)).filter(id => id !== b.dataset.optionId).map(id => [id, true]));
+    savePlan({ hidden: { [did]: { [b.dataset.optionId]: null } } }); render();
   }));
   const ndOpen = $("#nd-open"); if (ndOpen) ndOpen.addEventListener("click", () => openOption(decision(state.route), null));
   main.querySelectorAll("[data-edit-option]").forEach(b => b.addEventListener("click", e => {
@@ -986,7 +1012,7 @@ function bindMain() {
     const did = b.dataset.resetOption, oid = b.dataset.optionId;
     if (!confirm("Discard your edits and go back to the original listing?")) return;
     if (state.plan.overrides?.[did]) delete state.plan.overrides[did][oid];
-    savePlan(); render();
+    savePlan({ overrides: { [did]: { [oid]: null } } }); render();
   }));
   const po = $("#po-rate"); if (po) {
     po.addEventListener("input", () => {
@@ -994,16 +1020,16 @@ function bindMain() {
       $("#po-pct").textContent = po.value + "%";
       $("#po-count").textContent = Math.round(plusOnesOffered(invitedGuests()) * plusOneRate() / 100);
     });
-    po.addEventListener("change", () => { savePlan(); render(); });
+    po.addEventListener("change", () => { savePlan({ plusOneRate: state.plan.plusOneRate }); render(); });
   }
   main.querySelectorAll("[data-plusone]").forEach(c => {
     c.addEventListener("click", e => e.stopPropagation());
     c.addEventListener("change", () => { const g = byId(state.guests, c.dataset.plusone); if (g) saveGuest({ ...g, plusOne: c.checked }); });
   });
-  main.querySelectorAll("[data-clear]").forEach(b => b.addEventListener("click", () => { delete state.plan.picks[b.dataset.clear]; savePlan(); render(); }));
-  main.querySelectorAll("[data-extra]").forEach(c => c.addEventListener("change", () => { state.plan.extras[c.dataset.extra] = c.checked; savePlan(); render(); }));
+  main.querySelectorAll("[data-clear]").forEach(b => b.addEventListener("click", () => { delete state.plan.picks[b.dataset.clear]; savePlan({ picks: { [b.dataset.clear]: null } }); render(); }));
+  main.querySelectorAll("[data-extra]").forEach(c => c.addEventListener("change", () => { state.plan.extras[c.dataset.extra] = c.checked; savePlan({ extras: { [c.dataset.extra]: c.checked } }); render(); }));
   main.querySelectorAll("[data-note]").forEach(t => {
-    let timer; t.addEventListener("input", () => { state.plan.notes[t.dataset.note] = t.value; clearTimeout(timer); timer = setTimeout(savePlan, 500); });
+    let timer; t.addEventListener("input", () => { state.plan.notes[t.dataset.note] = t.value; clearTimeout(timer); timer = setTimeout(() => savePlan({ notes: { [t.dataset.note]: t.value } }), 500); });
   });
   const s = $("#g-search"); if (s) s.addEventListener("input", () => { state.filter.q = s.value; const pos = s.selectionStart; render(); const s2 = $("#g-search"); s2.focus(); s2.setSelectionRange(pos, pos); });
   const fs = $("#g-filter-status"); if (fs) fs.addEventListener("change", () => { state.filter.status = fs.value; render(); });
@@ -1136,13 +1162,16 @@ $("#option-form").addEventListener("submit", e => {
       link: /^https?:\/\//.test(v("link")) ? v("link") : undefined, estimated: v("estimated") === "1", estimateNote: v("estimateNote") };
   }
   Object.keys(fields).forEach(k => (fields[k] === undefined || fields[k] === "") && delete fields[k]);
+  let patch;
   if (!o) {
     const added = { id: "custom-" + uid(), custom: true, ...fields };
     if (!state.plan.customOptions) state.plan.customOptions = {};
     state.plan.customOptions[d.id] = customOptions(d).concat([added]);
+    patch = { customOptions: { [d.id]: state.plan.customOptions[d.id] } };
     toast(`Added ${added.name}`);
   } else if (o.custom) {
     state.plan.customOptions[d.id] = customOptions(d).map(x => x.id === o.id ? { id: o.id, custom: true, ...fields } : x);
+    patch = { customOptions: { [d.id]: state.plan.customOptions[d.id] } };
     toast("Saved");
   } else {
     // Built-in option: keep the edit as an override so the original stays in the data block.
@@ -1154,9 +1183,10 @@ $("#option-form").addEventListener("submit", e => {
     for (const k of ["where", "address", "time", "duration", "capacity", "desc", "pros", "cons", "link", "estimateNote"]) if (!(k in fields) && base[k] !== undefined) ov[k] = k === "pros" || k === "cons" ? [] : k === "capacity" ? 0 : "";
     if (!("estimated" in fields) && base.estimated) ov.estimated = false;
     if (Object.keys(ov).length) state.plan.overrides[d.id][o.id] = ov; else delete state.plan.overrides[d.id][o.id];
+    patch = { overrides: { [d.id]: { [o.id]: Object.keys(ov).length ? ov : null } } };
     toast("Saved");
   }
-  $("#option-dialog").close(); savePlan(); render();
+  $("#option-dialog").close(); savePlan(patch); render();
 });
 
 let toastTimer;
