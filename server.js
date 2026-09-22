@@ -128,6 +128,7 @@ function cleanOptionFields(o, out) {
   for (const k of ["pros", "cons"]) if (Array.isArray(o[k])) out[k] = o[k].slice(0, 8).map(x => String(x).slice(0, 120)).filter(Boolean);
   if (typeof o.link === "string" && /^https?:\/\/[^\s]{1,500}$/.test(o.link)) out.link = o.link;
   if ("estimated" in o) out.estimated = !!o.estimated;
+  for (const k of ["cateringIncluded", "barIncluded"]) if (k in o) out[k] = !!o[k];
   if (o.estimateNote) out.estimateNote = String(o.estimateNote).slice(0, 300);
   return out;
 }
@@ -165,10 +166,18 @@ function cleanPlan(p) {
     const ids = Array.isArray(v) ? v : isObj(v) ? Object.keys(v).filter(k => v[k]) : [];
     hidden[did] = Object.fromEntries(ids.filter(id => typeof id === "string" && /^[\w.-]{1,60}$/.test(id)).slice(0, 100).map(id => [id, true]));
   }
+  const addons = {};
+  if (isObj(p.addons)) for (const sec of ["catering", "bar", "misc"]) {
+    const a = p.addons[sec]; if (!isObj(a)) continue;
+    const out = {};
+    if (typeof a.name === "string") out.name = a.name.trim().slice(0, 120);
+    for (const k of ["perGuest", "fixed"]) if (a[k] !== undefined && Number.isFinite(Number(a[k]))) out[k] = Math.max(0, Number(a[k]));
+    addons[sec] = out;
+  }
   const rate = Number(p.plusOneRate);
   return {
     picks: isObj(p.picks) ? p.picks : {}, extras: isObj(p.extras) ? p.extras : {}, notes: isObj(p.notes) ? p.notes : {},
-    customOptions, overrides, hidden, plusOneRate: Number.isFinite(rate) ? Math.min(100, Math.max(0, Math.round(rate))) : 100,
+    customOptions, overrides, hidden, addons, plusOneRate: Number.isFinite(rate) ? Math.min(100, Math.max(0, Math.round(rate))) : 100,
   };
 }
 function cleanGuest(g) {
@@ -211,7 +220,7 @@ app.get("/api/state", requireAuth, async (req, res, next) => {
 });
 // Plan writes are patches merged into the stored plan, so two browsers never
 // overwrite each other's changes. Sections merge by key; a null deletes a key.
-const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2 };
+const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2, addons: 2 };
 function mergePatch(target, patch, depth) {
   const out = isObj(target) ? { ...target } : {};
   for (const [k, v] of Object.entries(patch)) {

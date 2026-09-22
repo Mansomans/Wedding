@@ -198,6 +198,15 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .bulk .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
 .bulk select{padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
 
+.addons{display:grid;gap:10px}
+.addon-row{display:grid;grid-template-columns:96px minmax(0,1fr);gap:6px 8px;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.addon-row:last-child{border-bottom:0;padding-bottom:0}
+.addon-row .nums{grid-column:2;display:flex;flex-wrap:wrap;gap:6px 14px}
+.addon-row .eyebrow{font-size:10px}
+.addon-row input{min-width:0;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:14px}
+.addon-row input[type=number]{width:84px;text-align:right}
+.addon-row label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap}
+@media (max-width:560px){.addon-row{grid-template-columns:1fr}.addon-row .nums{grid-column:1}}
 .scenario input[type=range]{width:100%;accent-color:var(--accent);margin:8px 0 4px}
 .scen-row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14px;color:var(--ink-2)}
 .scen-row b{color:var(--ink);font-family:var(--display);font-size:22px;font-weight:600}
@@ -208,6 +217,9 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .po{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 .opt .rm{color:var(--muted)}
 .cardtools{display:flex;gap:14px;flex-wrap:wrap}
+.incl{display:flex;gap:6px;flex-wrap:wrap}
+.tag.warn{background:#FBEDEB;color:var(--bad)}
+.breakdown{margin-top:-4px}
 .tag{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:1px 7px;border-radius:999px;background:var(--gold-soft);color:var(--accent);font-weight:600;vertical-align:middle}
 .addrow{margin-bottom:22px}
 #option-fields{display:grid;gap:10px}
@@ -342,6 +354,9 @@ dialog::backdrop{background:rgba(20,26,23,.45)}
      pros      array of strings
      cons      array of strings
      link      optional URL
+     cateringIncluded / barIncluded   (reception only) false marks a venue as
+               rental only, so the caterer / open bar / miscellaneous add-ons
+               set on The Weekend tab are added to its cost. Omitted = included.
    The DATE decision is special: each option has `date` (YYYY-MM-DD) and
    `costFactor` (1.0 = normal; peak season 1.1; off season 0.9) which
    scales the reception venue cost.
@@ -528,7 +543,7 @@ const EXTRAS = [
 
 /* ---------------- state + storage ---------------- */
 const state = {
-  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {}, customOptions: {}, overrides: {}, hidden: {}, plusOneRate: 100 },
+  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {}, customOptions: {}, overrides: {}, hidden: {}, addons: {}, plusOneRate: 100 },
   guests: [],           // [{id, name, side, group, party, status, events:{}, notes, createdAt}]
   storage: "loading",   // loading | server | offline
   route: "home",
@@ -540,7 +555,7 @@ function defaultExtras() { const o = {}; EXTRAS.forEach(e => o[e.id] = e.on); re
 function normalizePlan(p) {
   p = p || {};
   return { picks: p.picks || {}, extras: p.extras || defaultExtras(), notes: p.notes || {},
-    customOptions: p.customOptions || {}, overrides: p.overrides || {}, hidden: p.hidden || {}, plusOneRate: typeof p.plusOneRate === "number" ? p.plusOneRate : 100 };
+    customOptions: p.customOptions || {}, overrides: p.overrides || {}, hidden: p.hidden || {}, addons: p.addons || {}, plusOneRate: typeof p.plusOneRate === "number" ? p.plusOneRate : 100 };
 }
 
 /* API. Every call returns the full shared state, which we apply. */
@@ -570,7 +585,7 @@ function applyState(st, { force = false } = {}) {
    shared plan. Sections merge by key (picks, notes, extras, hidden,
    customOptions; overrides one level deeper); a null deletes that key. This
    keeps two browsers from overwriting each other's changes. */
-const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2 };
+const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2, addons: 2 };
 function mergePatch(target, patch, depth) {
   const out = { ...(target || {}) };
   for (const [k, v] of Object.entries(patch)) {
@@ -661,10 +676,30 @@ function attendees(eventKey) {
   return invitedGuests().filter(g => g.events && g.events[eventKey]);
 }
 function dateFactor() { const o = pickedOption(decision("date")); return o && o.costFactor ? o.costFactor : 1; }
-function optionCost(d, o, n) {
-  const fixed = (o.fixed || 0) * (d.id === "reception" ? dateFactor() : 1);
-  return fixed + (o.perGuest || 0) * n;
+/* Reception add-ons (caterer, open bar, miscellaneous) live in plan.addons and are
+   set on The Weekend tab. They stack onto reception options whose venue price
+   does not include catering or bar ("rental only"). Options without the flags
+   count as all-inclusive. */
+const ADDON_DEFS = [
+  { key: "catering", label: "Caterer", fallback: "Catering", appliesWhen: o => o.cateringIncluded === false },
+  { key: "bar", label: "Open bar", fallback: "Open bar", appliesWhen: o => o.barIncluded === false },
+  { key: "misc", label: "Miscellaneous", fallback: "Miscellaneous", appliesWhen: o => o.cateringIncluded === false || o.barIncluded === false },
+];
+const addon = key => (state.plan.addons && state.plan.addons[key]) || {};
+const isRentalOnly = o => o.cateringIncluded === false || o.barIncluded === false;
+function addonsFor(d, o) {
+  if (d.id !== "reception") return [];
+  return ADDON_DEFS.filter(a => a.appliesWhen(o)).map(a => ({ key: a.key, label: addon(a.key).name || a.fallback, perGuest: +addon(a.key).perGuest || 0, fixed: +addon(a.key).fixed || 0 }))
+    .filter(a => a.perGuest || a.fixed);
 }
+function costBreakdown(d, o, n) {
+  const fixed = (o.fixed || 0) * (d.id === "reception" ? dateFactor() : 1);
+  const parts = [{ key: "venue", label: isRentalOnly(o) ? "Venue rental" : "Venue", cost: fixed + (o.perGuest || 0) * n }];
+  addonsFor(d, o).forEach(a => parts.push({ key: a.key, label: a.label, cost: a.fixed + a.perGuest * n, perGuest: a.perGuest, fixed: a.fixed }));
+  return { parts, total: parts.reduce((s, p) => s + p.cost, 0) };
+}
+function optionCost(d, o, n) { return costBreakdown(d, o, n).total; }
+const breakdownText = (d, o, n) => costBreakdown(d, o, n).parts.map(p => `${p.label} ${fmt$(p.cost)}`).join(" + ");
 function budget() {
   const lines = [];
   let total = 0;
@@ -765,7 +800,7 @@ function renderHome() {
         <thead><tr><th>Event</th><th class="r">Guests</th><th class="r">Cost</th></tr></thead>
         <tbody>
         ${b.lines.map(l => `<tr>
-          <td>${esc(l.d.title)}${l.o ? `<span class="sub">${esc(l.o.name)}${(l.o.fixed || 0) ? ` · ${fmt$((l.o.fixed || 0) * (l.d.id === "reception" ? dateFactor() : 1))} fixed` : ""}${l.o.perGuest ? ` + ${fmt$(l.o.perGuest)}/guest` : ""}</span>` : `<span class="sub">Not decided</span>`}</td>
+          <td>${esc(l.d.title)}${l.o ? `<span class="sub">${esc(l.o.name)}${(l.o.fixed || 0) ? ` · ${fmt$((l.o.fixed || 0) * (l.d.id === "reception" ? dateFactor() : 1))} fixed` : ""}${l.o.perGuest ? ` + ${fmt$(l.o.perGuest)}/guest` : ""}${addonsFor(l.d, l.o).length ? `<br>${esc(breakdownText(l.d, l.o, l.n))}` : ""}</span>` : `<span class="sub">Not decided</span>`}</td>
           <td class="r num">${l.n}</td>
           <td class="r num">${l.o ? (l.o.estimated ? "~" : "") + fmt$(l.cost) : "—"}</td></tr>`).join("")}
         <tr><td>Everything else<span class="sub">${EXTRAS.filter(e => state.plan.extras[e.id]).length} items checked at right</span></td><td class="r"></td><td class="r num">${fmt$(b.extras)}</td></tr>
@@ -785,6 +820,7 @@ function renderHome() {
         </div>
         <p class="small muted" style="margin-top:10px">Every headcount and cost on this page follows this slider. Offer plus-ones per guest in the +1 column on the Guests tab.</p>
       </div>
+      ${renderAddons()}
       <div class="panel">
         <p class="eyebrow">Include in the estimate</p>
         <h3>Everything else</h3>
@@ -842,6 +878,28 @@ async function loadTravel(key, from, to) {
   if (el && state.route === "home") { el.outerHTML = renderTravel(); }
 }
 
+function renderAddons() {
+  const d = decision("reception"), o = pickedOption(d), n = headcount(attendees("reception"));
+  const c = addon("catering"), b = addon("bar"), m = addon("misc");
+  const inp = (sec, key, type, ph, val, extra = "") => `<input id="ao-${sec}-${key}" data-addon="${sec}" data-key="${key}" type="${type}" value="${esc(val ?? "")}" placeholder="${ph}" ${type === "number" ? 'min="0" step="1"' : ""} ${extra}>`;
+  let status;
+  if (o && isRentalOnly(o)) {
+    const bd = costBreakdown(d, o, n);
+    status = `<p class="small" style="margin-top:10px"><b>${esc(o.name)}</b> is rental only. For ${n} guests: ${esc(bd.parts.map(p => `${p.label} ${fmt$(p.cost)}`).join(" + "))} = <b class="num">${fmt$(bd.total)}</b>.</p>`;
+  } else if (o) status = `<p class="small muted" style="margin-top:10px"><b>${esc(o.name)}</b> includes catering and bar in its price, so these add-ons are not applied. Mark a venue as rental only with its Edit link on the Reception tab.</p>`;
+  else status = `<p class="small muted" style="margin-top:10px">Applied to reception venues marked rental only on the Reception tab.</p>`;
+  return `<div class="panel">
+    <p class="eyebrow">Reception add-ons</p>
+    <h3>Caterer, bar and extras</h3>
+    <div class="addons">
+      <div class="addon-row"><span class="eyebrow">Caterer</span>${inp("catering", "name", "text", "Caterer name", c.name)}<div class="nums"><label>${inp("catering", "perGuest", "number", "0", c.perGuest)}<span>/ person</span></label></div></div>
+      <div class="addon-row"><span class="eyebrow">Open bar</span>${inp("bar", "name", "text", "Bar package or vendor", b.name)}<div class="nums"><label>${inp("bar", "perGuest", "number", "0", b.perGuest)}<span>/ person</span></label></div></div>
+      <div class="addon-row"><span class="eyebrow">Miscellaneous</span>${inp("misc", "name", "text", "Rentals, linens, staffing, cake…", m.name)}<div class="nums"><label>${inp("misc", "fixed", "number", "0", m.fixed)}<span>flat</span></label><label>${inp("misc", "perGuest", "number", "0", m.perGuest)}<span>/ person</span></label></div></div>
+    </div>
+    ${status}
+  </div>`;
+}
+
 function renderSlot(d) {
   const o = pickedOption(d);
   if (!o) {
@@ -856,6 +914,7 @@ function renderSlot(d) {
     ${o.where ? `<p class="where">${esc(o.where)}</p>` : ""}
     ${o.address ? `<p class="where"><a class="maplink" href="${mapsSearch(o.address)}" target="_blank" rel="noopener">${esc(o.address)}</a></p>` : ""}
     <div class="meta"><span><b class="num">${n}</b> guests</span>${o.duration ? `<span>${esc(o.duration)}</span>` : ""}<span><b class="num">${o.estimated ? "~" : ""}${fmt$(optionCost(d, o, n))}</b>${o.estimated ? ` <span class="tag">price TBD</span>` : ""}</span></div>
+    ${addonsFor(d, o).length ? `<p class="small muted" style="margin-top:6px">${esc(breakdownText(d, o, n))}</p>` : ""}
     ${over ? `<p class="warnline">Over capacity: ${o.capacity} max, ${n} on the list.</p>` : ""}
     </div></div>`;
 }
@@ -869,6 +928,7 @@ function renderDecision(d) {
     <h2>${esc(d.title)}</h2>
     <p class="q">${esc(d.question)}</p>
     ${d.context ? `<p class="context">${esc(d.context)}${d.eventKey ? ` Right now that is <b class="num">${n}</b> people.` : ""}</p>` : ""}
+    ${d.id === "reception" ? `<p class="context">Venues marked rental only get the add-ons from The Weekend tab: caterer ${fmt$(+addon("catering").perGuest || 0)}/person, open bar ${fmt$(+addon("bar").perGuest || 0)}/person, miscellaneous ${fmt$(+addon("misc").fixed || 0)} + ${fmt$(+addon("misc").perGuest || 0)}/person. <button class="linkish" data-route="home">Change them</button></p>` : ""}
   </section>
   <div class="options">
     ${optionsOf(d).map(o => {
@@ -889,7 +949,9 @@ function renderDecision(d) {
         </div>
         ${(o.pros || o.cons) ? `<div class="pc">${(o.pros || []).map(p => `<span class="p">${esc(p)}</span>`).join("")}${(o.cons || []).map(c => `<span class="c">${esc(c)}</span>`).join("")}</div>` : ""}
         ${over ? `<p class="cap-warn">Over capacity for the current list (${n}).</p>` : ""}
-        ${cost !== null ? `<div class="est"><span class="l">For ${n} guests${o.estimated ? ` · <span class="tag">Estimate</span>` : ""}</span><span class="v num">${o.estimated ? "~" : ""}${fmt$(cost)}</span></div>` : ""}
+        ${d.id === "reception" ? `<div class="incl">${o.cateringIncluded === false ? `<span class="tag warn">Catering not included</span>` : `<span class="tag">Catering included</span>`}${o.barIncluded === false ? `<span class="tag warn">Bar not included</span>` : `<span class="tag">Bar included</span>`}</div>` : ""}
+        ${cost !== null ? `<div class="est"><span class="l">${addonsFor(d, o).length ? "Total for" : "For"} ${n} guests${o.estimated ? ` · <span class="tag">Estimate</span>` : ""}</span><span class="v num">${o.estimated ? "~" : ""}${fmt$(cost)}</span></div>` : ""}
+        ${cost !== null && addonsFor(d, o).length ? `<p class="small muted breakdown">${esc(breakdownText(d, o, n))}</p>` : ""}
         ${o.estimated && o.estimateNote ? `<p class="small muted">${esc(o.estimateNote)}</p>` : ""}
         ${o.link ? `<a href="${esc(o.link)}" target="_blank" rel="noopener" class="linkish" onclick="event.stopPropagation()">Website</a>` : ""}
         <div class="cardtools">
@@ -1014,6 +1076,13 @@ function bindMain() {
     if (state.plan.overrides?.[did]) delete state.plan.overrides[did][oid];
     savePlan({ overrides: { [did]: { [oid]: null } } }); render();
   }));
+  main.querySelectorAll("[data-addon]").forEach(inp => inp.addEventListener("change", () => {
+    const sec = inp.dataset.addon, key = inp.dataset.key;
+    const val = inp.type === "number" ? Math.max(0, Number(inp.value) || 0) : inp.value.trim();
+    if (!state.plan.addons) state.plan.addons = {};
+    state.plan.addons[sec] = { ...addon(sec), [key]: val };
+    savePlan({ addons: { [sec]: { [key]: val } } }); render();
+  }));
   const po = $("#po-rate"); if (po) {
     po.addEventListener("input", () => {
       state.plan.plusOneRate = +po.value;
@@ -1112,7 +1181,11 @@ const OPTION_FIELDS = {
     { grid: 2, fields: [["estimated", "Price status", "select", [["", "Quoted or confirmed price"], ["1", "Estimate, no final price yet"]]], ["estimateNote", "Estimate note", "text", "e.g. waiting on the venue's quote"]] },
   ],
 };
+const RECEPTION_FIELDS = [
+  { grid: 2, fields: [["cateringIncluded", "Catering", "select", [["1", "Included in the venue price"], ["0", "Not included (venue rental only)"]]], ["barIncluded", "Open bar", "select", [["1", "Included in the venue price"], ["0", "Not included (venue rental only)"]]]] },
+];
 function fieldValue(o, key) {
+  if (key === "cateringIncluded" || key === "barIncluded") return o && o[key] === false ? "0" : "1";
   if (!o) return key === "costFactor" ? "1" : "";
   const v = o[key];
   if (v === undefined || v === null) return "";
@@ -1125,7 +1198,8 @@ function openOption(d, o) {
   editingOption = { d, o };
   const kind = d.id === "date" ? "date" : "event";
   $("#option-dialog-title").textContent = o ? `Edit: ${o.name}` : `Add an option to ${d.title}`;
-  $("#option-fields").innerHTML = OPTION_FIELDS[kind].map(row => `<div class="${row.grid ? "grid" + row.grid : ""}">${row.fields.map(([key, label, type, extra]) => {
+  const rows = OPTION_FIELDS[kind].concat(d.id === "reception" ? RECEPTION_FIELDS : []);
+  $("#option-fields").innerHTML = rows.map(row => `<div class="${row.grid ? "grid" + row.grid : ""}">${row.fields.map(([key, label, type, extra]) => {
     const id = "o-" + key, val = fieldValue(o, key);
     if (type === "select") return `<div class="field"><span>${label}</span><select id="${id}">${extra.map(([v, t]) => `<option value="${v}" ${String(val) === v ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
     return `<div class="field"><span>${label}</span><input id="${id}" type="${type}" value="${esc(val)}" placeholder="${esc(extra || "")}" ${type === "number" ? 'min="0"' : ""} ${type === "date" ? 'min="2027-01-01" max="2028-12-31"' : ""}></div>`;
@@ -1160,6 +1234,7 @@ $("#option-form").addEventListener("submit", e => {
     fields = { name: v("name"), where: v("where"), address: v("address"), time: v("time"), duration: v("duration"), capacity: num("capacity"),
       fixed: num("fixed") || 0, perGuest: num("perGuest") || 0, desc: v("desc"), pros: list("pros"), cons: list("cons"),
       link: /^https?:\/\//.test(v("link")) ? v("link") : undefined, estimated: v("estimated") === "1", estimateNote: v("estimateNote") };
+    if (d.id === "reception") { fields.cateringIncluded = v("cateringIncluded") !== "0"; fields.barIncluded = v("barIncluded") !== "0"; }
   }
   Object.keys(fields).forEach(k => (fields[k] === undefined || fields[k] === "") && delete fields[k]);
   let patch;
@@ -1179,7 +1254,10 @@ $("#option-form").addEventListener("submit", e => {
     if (!state.plan.overrides[d.id]) state.plan.overrides[d.id] = {};
     const base = byId(d.options, o.id);
     const ov = {};
-    for (const [k, val] of Object.entries(fields)) if (JSON.stringify(val) !== JSON.stringify(base[k])) ov[k] = val;
+    for (const [k, val] of Object.entries(fields)) {
+      const baseVal = (k === "cateringIncluded" || k === "barIncluded") && base[k] === undefined ? true : base[k];
+      if (JSON.stringify(val) !== JSON.stringify(baseVal)) ov[k] = val;
+    }
     for (const k of ["where", "address", "time", "duration", "capacity", "desc", "pros", "cons", "link", "estimateNote"]) if (!(k in fields) && base[k] !== undefined) ov[k] = k === "pros" || k === "cons" ? [] : k === "capacity" ? 0 : "";
     if (!("estimated" in fields) && base.estimated) ov.estimated = false;
     if (Object.keys(ov).length) state.plan.overrides[d.id][o.id] = ov; else delete state.plan.overrides[d.id][o.id];
