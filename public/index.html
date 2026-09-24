@@ -217,6 +217,41 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .po{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 .opt .rm{color:var(--muted)}
 .cardtools{display:flex;gap:14px;flex-wrap:wrap}
+.badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.badge{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;font-weight:700;vertical-align:middle;white-space:nowrap}
+.badge.st-complete{background:#E4F0DC;color:#3E6B2A}
+.badge.st-venue_only{background:var(--gold-soft);color:var(--accent)}
+.badge.st-incomplete{background:#FBEFD9;color:#8A5A0F}
+.badge.st-not_priced{background:var(--surface-2);color:var(--muted)}
+.tag.ok{background:#E4F0DC;color:#3E6B2A}
+.ok{color:#3E6B2A}.bad{color:var(--bad)}.warn{color:#8A5A0F}
+.price{display:grid;gap:2px;border-top:1px solid var(--line);padding-top:10px}
+.price .v{font-family:var(--display);font-size:30px;font-weight:600;line-height:1.05}
+.price .suffix{font-size:13px;color:#8A5A0F;font-weight:600}
+.price .l{font-size:12px;color:var(--muted)}
+.price.none .v{font-size:22px;color:var(--muted);font-style:italic}
+.incl-table{font-size:13px}
+.incl-table th{font-size:12px;letter-spacing:0;text-transform:none;font-weight:500;color:var(--ink-2);padding:4px 8px 4px 0;border-bottom:1px solid var(--line);width:44%}
+.incl-table td{padding:4px 0;border-bottom:1px solid var(--line)}
+.incl-table tr:last-child th,.incl-table tr:last-child td{border-bottom:0}
+.math{color:var(--ink-2);background:var(--surface-2);padding:8px 10px;border-radius:8px;line-height:1.45;word-break:break-word}
+.missing ul{margin:4px 0 0;padding-left:18px;font-size:13px;color:#8A5A0F}
+.missing li{margin:1px 0}
+.asof{color:var(--muted)}
+.more summary{cursor:pointer;font-size:13px;color:var(--accent);list-style:none}
+.more summary::before{content:"▸ ";}
+.more[open] summary::before{content:"▾ ";}
+.more .desc{margin-top:8px;white-space:pre-wrap}
+.more .pc{margin-top:8px}
+.links{display:flex;flex-wrap:wrap;gap:6px}
+.viewtoggle{display:flex;gap:2px;margin-top:10px;border:1px solid var(--line);border-radius:999px;padding:3px;width:max-content}
+.vt{border:0;background:none;padding:6px 14px;border-radius:999px;font-weight:600;color:var(--ink-2)}
+.vt.on{background:var(--accent);color:var(--accent-ink)}
+.venue-table{min-width:1000px}
+.venue-table th{cursor:pointer;user-select:none;white-space:nowrap}
+.venue-table th.sorted{color:var(--ink)}
+.venue-table tbody tr.picked{background:var(--gold-soft)}
+.venue-table td{vertical-align:top}
 .incl{display:flex;gap:6px;flex-wrap:wrap}
 .tag.warn{background:#FBEDEB;color:var(--bad)}
 .breakdown{margin-top:-4px}
@@ -229,7 +264,21 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 /* ---------- dialog ---------- */
 dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:0;width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;box-shadow:var(--shadow)}
 dialog.wide{width:min(860px,calc(100vw - 32px))}
+dialog.wide.xwide{width:min(1240px,calc(100vw - 32px))}
+.lines-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+.lines{min-width:1080px;font-size:12px}
+.lines th{font-size:10px;letter-spacing:.06em;padding:6px 6px;white-space:nowrap;border-bottom:1px solid var(--line)}
+.lines td{padding:4px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
+.lines td.c{text-align:center}
+.lines input,.lines select{width:100%;min-width:0;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font-size:12px}
+.lines input.narrow{width:78px}
+.lines input[type=checkbox]{width:15px;height:15px}
+.links-editor{display:grid;gap:6px}
+.field textarea{width:100%;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:14px;color:var(--ink);resize:vertical}
 dialog.wide .dlg{gap:12px;padding:18px 20px}
+dialog.xwide .dlg{gap:8px;padding:14px 18px}
+dialog.xwide #option-fields{gap:8px}
+dialog.xwide .dlg h3{font-size:22px}
 dialog.wide .field input,dialog.wide .field select{padding:7px 9px;font-size:14px}
 dialog.wide .field{gap:3px;font-size:12px}
 .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
@@ -332,6 +381,7 @@ dialog::backdrop{background:rgba(20,26,23,.45)}
 </dialog>
 <div class="toast" id="toast" aria-live="polite"></div>
 
+<script src="/pricing.js"></script>
 <script>
 /* =====================================================================
    WEDDING WEEKEND — DATA BLOCK
@@ -675,31 +725,27 @@ function attendees(eventKey) {
   if (!eventKey) return invitedGuests();
   return invitedGuests().filter(g => g.events && g.events[eventKey]);
 }
-function dateFactor() { const o = pickedOption(decision("date")); return o && o.costFactor ? o.costFactor : 1; }
-/* Reception add-ons (caterer, open bar, miscellaneous) live in plan.addons and are
-   set on The Weekend tab. They stack onto reception options whose venue price
-   does not include catering or bar ("rental only"). Options without the flags
-   count as all-inclusive. */
-const ADDON_DEFS = [
-  { key: "catering", label: "Caterer", fallback: "Catering", appliesWhen: o => o.cateringIncluded === false },
-  { key: "bar", label: "Open bar", fallback: "Open bar", appliesWhen: o => o.barIncluded === false },
-  { key: "misc", label: "Miscellaneous", fallback: "Miscellaneous", appliesWhen: o => o.cateringIncluded === false || o.barIncluded === false },
-];
+/* Season factors no longer touch dollars: every date is a note, not a multiplier. */
+function dateFactor() { return 1; }
 const addon = key => (state.plan.addons && state.plan.addons[key]) || {};
-const isRentalOnly = o => o.cateringIncluded === false || o.barIncluded === false;
-function addonsFor(d, o) {
-  if (d.id !== "reception") return [];
-  return ADDON_DEFS.filter(a => a.appliesWhen(o)).map(a => ({ key: a.key, label: addon(a.key).name || a.fallback, perGuest: +addon(a.key).perGuest || 0, fixed: +addon(a.key).fixed || 0 }))
-    .filter(a => a.perGuest || a.fixed);
+/* The couple's own caterer / bar / misc quotes from The Weekend tab, handed to the
+   pricing engine for venue-only places. $0 entries are ignored by the engine. */
+function receptionAddons() {
+  const c = addon("catering"), b = addon("bar"), m = addon("misc");
+  return [
+    { label: "Caterer" + (c.name ? ` (${c.name})` : ""), perGuest: +c.perGuest || 0 },
+    { label: "Open bar" + (b.name ? ` (${b.name})` : ""), perGuest: +b.perGuest || 0 },
+    { label: "Miscellaneous" + (m.name ? ` (${m.name})` : ""), perGuest: +m.perGuest || 0, flat: +m.fixed || 0 },
+  ];
 }
-function costBreakdown(d, o, n) {
-  const fixed = (o.fixed || 0) * (d.id === "reception" ? dateFactor() : 1);
-  const parts = [{ key: "venue", label: isRentalOnly(o) ? "Venue rental" : "Venue", cost: fixed + (o.perGuest || 0) * n }];
-  addonsFor(d, o).forEach(a => parts.push({ key: a.key, label: a.label, cost: a.fixed + a.perGuest * n, perGuest: a.perGuest, fixed: a.fixed }));
-  return { parts, total: parts.reduce((s, p) => s + p.cost, 0) };
+function heldYear() { const dt = weddingDate(); return dt ? dt.getFullYear() : null; }
+function venuePricing(o, n) { return Pricing.compute(o, n, { addons: receptionAddons(), heldYear: heldYear() }); }
+/* Total for an option, or null when the venue has not given us a price. */
+function optionCost(d, o, n) {
+  if (d.id === "reception") return venuePricing(o, n).total;
+  return (o.fixed || 0) + (o.perGuest || 0) * n;
 }
-function optionCost(d, o, n) { return costBreakdown(d, o, n).total; }
-const breakdownText = (d, o, n) => costBreakdown(d, o, n).parts.map(p => `${p.label} ${fmt$(p.cost)}`).join(" + ");
+const fmtMoney = n => Pricing.fmt(n);
 function budget() {
   const lines = [];
   let total = 0;
@@ -709,7 +755,8 @@ function budget() {
     const n = headcount(attendees(d.eventKey));
     if (!o) { lines.push({ d, o: null, n, cost: 0 }); return; }
     const cost = optionCost(d, o, n);
-    lines.push({ d, o, n, cost }); total += cost;
+    const pr = d.id === "reception" ? venuePricing(o, n) : null;
+    lines.push({ d, o, n, cost, pr }); if (cost !== null) total += cost;
   });
   let extras = 0;
   EXTRAS.forEach(e => { if (state.plan.extras[e.id]) extras += e.cost; });
@@ -800,15 +847,15 @@ function renderHome() {
         <thead><tr><th>Event</th><th class="r">Guests</th><th class="r">Cost</th></tr></thead>
         <tbody>
         ${b.lines.map(l => `<tr>
-          <td>${esc(l.d.title)}${l.o ? `<span class="sub">${esc(l.o.name)}${(l.o.fixed || 0) ? ` · ${fmt$((l.o.fixed || 0) * (l.d.id === "reception" ? dateFactor() : 1))} fixed` : ""}${l.o.perGuest ? ` + ${fmt$(l.o.perGuest)}/guest` : ""}${addonsFor(l.d, l.o).length ? `<br>${esc(breakdownText(l.d, l.o, l.n))}` : ""}</span>` : `<span class="sub">Not decided</span>`}</td>
+          <td>${esc(l.d.title)}${l.o ? `<span class="sub">${esc(l.o.name)}${l.pr ? ` · <span class="badge st-${l.pr.status}">${Pricing.STATUS_LABEL[l.pr.status]}</span>${l.pr.math ? `<br>${esc(l.pr.math)}` : ""}` : `${(l.o.fixed || 0) ? ` · ${fmt$(l.o.fixed)} fixed` : ""}${l.o.perGuest ? ` + ${fmt$(l.o.perGuest)}/guest` : ""}`}</span>` : `<span class="sub">Not decided</span>`}</td>
           <td class="r num">${l.n}</td>
-          <td class="r num">${l.o ? (l.o.estimated ? "~" : "") + fmt$(l.cost) : "—"}</td></tr>`).join("")}
+          <td class="r num">${!l.o ? "—" : l.cost === null ? `<span class="muted">Not priced yet</span>` : `${l.pr ? fmtMoney(l.cost) : fmt$(l.cost)}${l.pr && l.pr.suffix ? ` <span class="muted small">${esc(l.pr.suffix)}</span>` : ""}`}</td></tr>`).join("")}
         <tr><td>Everything else<span class="sub">${EXTRAS.filter(e => state.plan.extras[e.id]).length} items checked at right</span></td><td class="r"></td><td class="r num">${fmt$(b.extras)}</td></tr>
         <tr class="total"><td>Estimated total</td><td></td><td class="r num">${fmt$(b.total)}</td></tr>
         </tbody>
       </table>
-      ${dateFactor() !== 1 ? `<p class="small muted" style="margin-top:10px">Reception venue cost scaled by ${dateFactor()}× for the chosen season.</p>` : ""}
-      ${b.lines.some(l => l.o && l.o.estimated) ? `<p class="small muted" style="margin-top:6px">Lines marked ~ are our own estimates. We do not have a final price for them yet.</p>` : ""}
+      ${b.lines.some(l => l.o && l.cost === null) ? `<p class="small muted" style="margin-top:10px">A venue without a price is left out of the total rather than guessed.</p>` : ""}
+      ${b.lines.some(l => l.pr && l.pr.suffix) ? `<p class="small muted" style="margin-top:6px">"+ tax", "+ service" or "+ catering" means that part has not been priced and is not in the number shown.</p>` : ""}
     </div>
     <div style="display:grid;gap:20px;align-content:start">
       <div class="panel">
@@ -883,11 +930,15 @@ function renderAddons() {
   const c = addon("catering"), b = addon("bar"), m = addon("misc");
   const inp = (sec, key, type, ph, val, extra = "") => `<input id="ao-${sec}-${key}" data-addon="${sec}" data-key="${key}" type="${type}" value="${esc(val ?? "")}" placeholder="${ph}" ${type === "number" ? 'min="0" step="1"' : ""} ${extra}>`;
   let status;
-  if (o && isRentalOnly(o)) {
-    const bd = costBreakdown(d, o, n);
-    status = `<p class="small" style="margin-top:10px"><b>${esc(o.name)}</b> is rental only. For ${n} guests: ${esc(bd.parts.map(p => `${p.label} ${fmt$(p.cost)}`).join(" + "))} = <b class="num">${fmt$(bd.total)}</b>.</p>`;
-  } else if (o) status = `<p class="small muted" style="margin-top:10px"><b>${esc(o.name)}</b> includes catering and bar in its price, so these add-ons are not applied. Mark a venue as rental only with its Edit link on the Reception tab.</p>`;
-  else status = `<p class="small muted" style="margin-top:10px">Applied to reception venues marked rental only on the Reception tab.</p>`;
+  if (o) {
+    const r = venuePricing(o, n);
+    if (r.status === "venue_only") {
+      const applied = r.addons.map(a => `${esc(a.label)} ${fmtMoney(a.total)}`).join(", ");
+      const gaps = r.missing.filter(m => /not priced$/.test(m));
+      status = `<p class="small" style="margin-top:10px"><b>${esc(o.name)}</b> is venue only. ${applied ? `Added from our quotes: ${applied}.` : "No caterer or bar quote entered yet."} ${gaps.length ? `<span style="color:var(--warn)">${esc(gaps.join(" · "))}.</span>` : ""} Total for ${n}: <b class="num">${fmtMoney(r.total)}</b>${r.suffix ? ` <span class="muted">${esc(r.suffix)}</span>` : ""}.</p>`;
+    } else if (r.status === "not_priced") status = `<p class="small muted" style="margin-top:10px"><b>${esc(o.name)}</b> has no price yet, so there is nothing to add these to.</p>`;
+    else status = `<p class="small muted" style="margin-top:10px"><b>${esc(o.name)}</b> prices its own food and bar, so these quotes are not applied. They only apply to venues whose cost lines mark food and bar as not included.</p>`;
+  } else status = `<p class="small muted" style="margin-top:10px">Applied only to reception venues that are venue only (food and bar not included). Leave a line at 0 and the site says "not priced" instead of adding $0.</p>`;
   return `<div class="panel">
     <p class="eyebrow">Reception add-ons</p>
     <h3>Caterer, bar and extras</h3>
@@ -913,8 +964,8 @@ function renderSlot(d) {
     <div class="card"><p class="eyebrow">${esc(d.title)}</p><h4>${esc(o.name)}</h4>
     ${o.where ? `<p class="where">${esc(o.where)}</p>` : ""}
     ${o.address ? `<p class="where"><a class="maplink" href="${mapsSearch(o.address)}" target="_blank" rel="noopener">${esc(o.address)}</a></p>` : ""}
-    <div class="meta"><span><b class="num">${n}</b> guests</span>${o.duration ? `<span>${esc(o.duration)}</span>` : ""}<span><b class="num">${o.estimated ? "~" : ""}${fmt$(optionCost(d, o, n))}</b>${o.estimated ? ` <span class="tag">price TBD</span>` : ""}</span></div>
-    ${addonsFor(d, o).length ? `<p class="small muted" style="margin-top:6px">${esc(breakdownText(d, o, n))}</p>` : ""}
+    ${d.id === "reception" ? (() => { const r = venuePricing(o, n); return `<div class="meta"><span><b class="num">${n}</b> guests</span>${o.duration ? `<span>${esc(o.duration)}</span>` : ""}<span>${r.total === null ? `<b>Not priced yet</b>` : `<b class="num">${fmtMoney(r.total)}</b>${r.suffix ? ` <span class="muted">${esc(r.suffix)}</span>` : ""}`} <span class="badge st-${r.status}">${Pricing.STATUS_LABEL[r.status]}</span></span></div>${r.math ? `<p class="small muted" style="margin-top:6px">${esc(r.math)}</p>` : ""}`; })()
+    : `<div class="meta"><span><b class="num">${n}</b> guests</span>${o.duration ? `<span>${esc(o.duration)}</span>` : ""}<span><b class="num">${o.estimated ? "~" : ""}${fmt$(optionCost(d, o, n))}</b>${o.estimated ? ` <span class="tag">price TBD</span>` : ""}</span></div>`}
     ${over ? `<p class="warnline">Over capacity: ${o.capacity} max, ${n} on the list.</p>` : ""}
     </div></div>`;
 }
@@ -928,10 +979,12 @@ function renderDecision(d) {
     <h2>${esc(d.title)}</h2>
     <p class="q">${esc(d.question)}</p>
     ${d.context ? `<p class="context">${esc(d.context)}${d.eventKey ? ` Right now that is <b class="num">${n}</b> people.` : ""}</p>` : ""}
-    ${d.id === "reception" ? `<p class="context">Venues marked rental only get the add-ons from The Weekend tab: caterer ${fmt$(+addon("catering").perGuest || 0)}/person, open bar ${fmt$(+addon("bar").perGuest || 0)}/person, miscellaneous ${fmt$(+addon("misc").fixed || 0)} + ${fmt$(+addon("misc").perGuest || 0)}/person. <button class="linkish" data-route="home">Change them</button></p>` : ""}
+    ${d.id === "reception" ? `<p class="context">Totals are for <b class="num">${n}</b> guests and include service charge and tax wherever the venue stated them. Nothing is estimated: a part the venue has not priced is called out instead. Venue-only places use the caterer and bar quotes from The Weekend tab when those are entered${receptionAddons().some(a => a.perGuest || a.flat) ? "" : " (none entered yet)"}. <button class="linkish" data-route="home">Change them</button></p>
+    <div class="viewtoggle" role="tablist"><button class="vt ${venueView() === "cards" ? "on" : ""}" data-venue-view="cards">Cards</button><button class="vt ${venueView() === "table" ? "on" : ""}" data-venue-view="table">Compare in a table</button></div>` : ""}
   </section>
-  <div class="options">
+  ${d.id === "reception" && venueView() === "table" ? renderVenueTable(d, n) : `<div class="options">
     ${optionsOf(d).map(o => {
+      if (d.id === "reception") return renderVenueCard(d, o, n, picked === o.id);
       const isPicked = picked === o.id;
       const cost = d.eventKey ? optionCost(d, o, n) : null;
       const over = o.capacity && n > o.capacity;
@@ -944,16 +997,13 @@ function renderDecision(d) {
           ${o.capacity && o.capacity < 999 ? `<div><b class="num">${o.capacity}</b>Capacity</div>` : ""}
           ${o.fixed ? `<div><b class="num">${fmt$(o.fixed)}</b>Fixed</div>` : ""}
           ${o.perGuest ? `<div><b class="num">${fmt$(o.perGuest)}</b>Per guest</div>` : ""}
-          ${o.costFactor ? `<div><b class="num">${o.costFactor}×</b>Venue season factor</div>` : ""}
           ${dateObj ? `<div><b class="num">${daysUntil(dateObj)}</b>Days from today</div>` : ""}
         </div>
         ${(o.pros || o.cons) ? `<div class="pc">${(o.pros || []).map(p => `<span class="p">${esc(p)}</span>`).join("")}${(o.cons || []).map(c => `<span class="c">${esc(c)}</span>`).join("")}</div>` : ""}
         ${over ? `<p class="cap-warn">Over capacity for the current list (${n}).</p>` : ""}
-        ${d.id === "reception" ? `<div class="incl">${o.cateringIncluded === false ? `<span class="tag warn">Catering not included</span>` : `<span class="tag">Catering included</span>`}${o.barIncluded === false ? `<span class="tag warn">Bar not included</span>` : `<span class="tag">Bar included</span>`}</div>` : ""}
-        ${cost !== null ? `<div class="est"><span class="l">${addonsFor(d, o).length ? "Total for" : "For"} ${n} guests${o.estimated ? ` · <span class="tag">Estimate</span>` : ""}</span><span class="v num">${o.estimated ? "~" : ""}${fmt$(cost)}</span></div>` : ""}
-        ${cost !== null && addonsFor(d, o).length ? `<p class="small muted breakdown">${esc(breakdownText(d, o, n))}</p>` : ""}
+        ${cost !== null ? `<div class="est"><span class="l">For ${n} guests${o.estimated ? ` · <span class="tag">Estimate</span>` : ""}</span><span class="v num">${o.estimated ? "~" : ""}${fmt$(cost)}</span></div>` : ""}
         ${o.estimated && o.estimateNote ? `<p class="small muted">${esc(o.estimateNote)}</p>` : ""}
-        ${o.link ? `<a href="${esc(o.link)}" target="_blank" rel="noopener" class="linkish" onclick="event.stopPropagation()">Website</a>` : ""}
+        ${renderLinks(o)}
         <div class="cardtools">
           <button class="linkish" data-edit-option="${d.id}" data-option-id="${o.id}">Edit</button>
           ${o.edited ? `<button class="linkish rm" data-reset-option="${d.id}" data-option-id="${o.id}">Reset to original</button>` : ""}
@@ -961,7 +1011,7 @@ function renderDecision(d) {
         </div>
       </div>`;
     }).join("")}
-  </div>
+  </div>`}
   <div class="addrow"><button class="btn ghost" id="nd-open">Add an option to ${esc(d.title)}</button>
     ${hiddenOptions(d).length ? `<p class="small muted" style="margin-top:10px">Removed: ${hiddenOptions(d).map(o => `${esc(o.name)} <button class="linkish" data-restore-option="${d.id}" data-option-id="${o.id}">restore</button>`).join(" · ")}</p>` : ""}
   </div>
@@ -970,6 +1020,114 @@ function renderDecision(d) {
     <textarea id="note-${d.id}" data-note="${d.id}" placeholder="Quotes, contacts, things to ask the venue…">${esc(state.plan.notes[d.id] || "")}</textarea>
   </div>
   ${picked ? `<button class="btn ghost small clear-pick" data-clear="${d.id}">Un-pick and leave this open</button>` : ""}`;
+}
+
+/* ---------------- reception venues: cards and comparison table ---------------- */
+function venueView() { let v = state.venueView; if (!v) { try { v = localStorage.getItem("ww.venueView"); } catch {} } return v === "table" ? "table" : "cards"; }
+function linksOf(o) { return Array.isArray(o.links) && o.links.length ? o.links : (o.link ? [{ label: "Website", url: o.link }] : []); }
+function renderLinks(o) {
+  const ls = linksOf(o); if (!ls.length) return "";
+  return `<div class="links">${ls.map(l => `<a class="chip" href="${esc(l.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(l.label || "Link")}</a>`).join("")}</div>`;
+}
+const fmtAsOf = iso => new Date(iso + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+function availabilityTag(o) {
+  const dt = weddingDate(); const when = dt ? dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "our date";
+  if (o.available === "yes") return `<span class="tag ok">Available ${esc(when)}</span>`;
+  if (o.available === "no") return `<span class="tag warn">Not available ${esc(when)}</span>`;
+  return `<span class="tag">${esc(when)}: not confirmed</span>`;
+}
+function rowStateText(row) {
+  const L = Pricing.ROW_STATE_LABEL;
+  if (row.addon) return `<span class="ok">✓ our quote</span> <span class="num">${fmtMoney(row.addon.total)}</span>`;
+  if (row.state === "included") {
+    let extra = "";
+    if (row.key === "service" || row.key === "tax") extra = row.rates && row.rates.length ? ` ${row.rates.map(r => r + "%").join(" / ")}` : "";
+    if (row.viaService) extra = " via service charge";
+    return `<span class="ok">✓ included</span>${extra ? `<span class="muted">${esc(extra)}</span>` : ""}${row.amount ? ` <span class="num">${fmtMoney(row.amount)}</span>` : ""}`;
+  }
+  if (row.state === "not_included") return `<span class="bad">✗ not included</span>`;
+  if (row.state === "rate_not_stated") return `<span class="warn">rate not stated</span>`;
+  if (row.state === "none") return `<span class="muted">— none</span>`;
+  return `<span class="warn">not priced yet</span>`;
+}
+function freshnessLine(r) {
+  const f = r.freshness; const bits = [];
+  if (f.asOf) bits.push(`Price as of ${fmtAsOf(f.asOf)}`); else bits.push("Price date not recorded");
+  if (f.stale) bits.push(`<span class="warn">⚠ older than 60 days</span>`);
+  if (f.rateYearMismatch) bits.push(`<span class="warn">⚠ ${f.rateYear} rates for a ${heldYear()} date</span>`);
+  else if (f.rateYear) bits.push(`${f.rateYear} rates`);
+  return `<p class="asof small">${bits.join(" · ")}</p>`;
+}
+function renderVenueCard(d, o, n, isPicked) {
+  const r = venuePricing(o, n);
+  const over = o.capacity && n > o.capacity;
+  const minNote = r.minimum ? (r.minimum.sets ? `Minimum sets the price${r.minimum.until !== null ? ` until ${r.minimum.until} guests` : ""}.` : `${fmtMoney(r.minimum.amount)} minimum is met by the per-guest spend.`) : "";
+  return `<div class="opt venue ${isPicked ? "picked" : ""}" data-pick="${d.id}" data-option="${o.id}" role="button" tabindex="0" aria-pressed="${isPicked}">
+    <div class="top"><div><h3>${esc(o.name)}</h3>${o.where ? `<p class="where">${esc(o.where)}</p>` : ""}${o.address ? `<p class="where"><a class="maplink" href="${mapsSearch(o.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(o.address)}</a></p>` : ""}</div><span class="mark">${isPicked ? "✓" : ""}</span></div>
+    <div class="badges"><span class="badge st-${r.status}">${Pricing.STATUS_LABEL[r.status]}</span>${availabilityTag(o)}${o.capacity ? `<span class="tag ${over ? "warn" : ""}">${over ? "⚠ " : ""}Capacity ${o.capacity}</span>` : ""}</div>
+    ${r.total === null ? `<div class="price none"><span class="v">Not priced yet</span><span class="l">${esc((o.pricing && o.pricing.notes) || "No figure from the venue yet.")}</span></div>`
+      : `<div class="price"><span class="v num">${fmtMoney(r.total)}</span>${r.suffix ? `<span class="suffix">${esc(r.suffix)}</span>` : ""}<span class="l">for ${n} guests${minNote ? ` · ${esc(minNote)}` : ""}</span></div>`}
+    <table class="incl-table"><tbody>${r.rows.map(row => `<tr><th>${esc(row.label)}</th><td>${rowStateText(row)}</td></tr>`).join("")}</tbody></table>
+    ${r.math ? `<p class="math small num">${esc(r.math)}</p>` : ""}
+    ${r.missing.length ? `<div class="missing"><span class="eyebrow">Still missing</span><ul>${r.missing.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>` : ""}
+    ${r.status !== "not_priced" || r.freshness.asOf ? freshnessLine(r) : ""}
+    <div class="facts">${o.time ? `<div><b>${esc(o.time)}</b>Start${o.duration ? ` · ${esc(o.duration)}` : ""}</div>` : ""}${r.computed.filter(c => c.line && c.line.source).length ? `<div><b>${esc([...new Set(r.computed.filter(c => c.line && c.line.source).map(c => c.line.source))].join("; "))}</b>Source</div>` : ""}</div>
+    ${(o.desc || (o.pros && o.pros.length) || (o.cons && o.cons.length)) ? `<details class="more" onclick="event.stopPropagation()"><summary>Notes, pros and cons</summary>${o.desc ? `<p class="desc">${esc(o.desc)}</p>` : ""}${(o.pros || o.cons) ? `<div class="pc">${(o.pros || []).map(p => `<span class="p">${esc(p)}</span>`).join("")}${(o.cons || []).map(c => `<span class="c">${esc(c)}</span>`).join("")}</div>` : ""}${o.pricing && o.pricing.notes && r.total !== null ? `<p class="small muted">${esc(o.pricing.notes)}</p>` : ""}</details>` : ""}
+    ${renderLinks(o)}
+    <div class="cardtools">
+      <button class="linkish" data-edit-option="${d.id}" data-option-id="${o.id}">Edit</button>
+      ${o.edited ? `<button class="linkish rm" data-reset-option="${d.id}" data-option-id="${o.id}">Reset to original</button>` : ""}
+      <button class="linkish rm" data-remove-option="${d.id}" data-option-id="${o.id}">Remove</button>
+    </div>
+  </div>`;
+}
+const AVAIL_RANK = { yes: 0, unknown: 1, no: 2 };
+const STATUS_RANK = { complete: 0, incomplete: 1, venue_only: 1, not_priced: 2 };
+function renderVenueTable(d, n) {
+  const dt = weddingDate(); const when = dt ? dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "our date";
+  const rows = optionsOf(d).map(o => {
+    const r = venuePricing(o, n);
+    const fb = r.state.food === "included" || r.state.bar === "included" ? r.parts.fb : null;
+    const addonFb = r.addons.filter(a => /cater|food|bar/i.test(a.label)).reduce((s, a) => s + a.total, 0);
+    return { o, r,
+      rental: r.state.rental === "included" ? r.parts.rental : null,
+      fb, addonFb,
+      svcTax: r.status === "not_priced" ? null : (r.state.service === "rate_not_stated" || r.state.tax === "rate_not_stated") ? "unstated" : r.parts.service + r.parts.tax,
+      total: r.total,
+      missing: r.missing.join("; ") || (r.status === "complete" ? "Nothing" : ""),
+    };
+  });
+  const sort = state.venueSort || { key: "default", dir: 1 };
+  const cmpNum = (a, b) => (a === null ? 1 : b === null ? -1 : a - b);
+  const byDefault = (a, b) => (AVAIL_RANK[a.o.available || "unknown"] - AVAIL_RANK[b.o.available || "unknown"]) || (STATUS_RANK[a.r.status] - STATUS_RANK[b.r.status]) || cmpNum(a.total, b.total) || a.o.name.localeCompare(b.o.name);
+  const cmp = {
+    default: byDefault,
+    venue: (a, b) => a.o.name.localeCompare(b.o.name),
+    available: (a, b) => AVAIL_RANK[a.o.available || "unknown"] - AVAIL_RANK[b.o.available || "unknown"],
+    capacity: (a, b) => cmpNum(a.o.capacity || null, b.o.capacity || null),
+    status: (a, b) => STATUS_RANK[a.r.status] - STATUS_RANK[b.r.status],
+    rental: (a, b) => cmpNum(a.rental, b.rental),
+    fb: (a, b) => cmpNum(a.fb, b.fb),
+    svctax: (a, b) => cmpNum(typeof a.svcTax === "number" ? a.svcTax : null, typeof b.svcTax === "number" ? b.svcTax : null),
+    total: (a, b) => (STATUS_RANK[a.r.status] === 0) - (STATUS_RANK[b.r.status] === 0) ? ((STATUS_RANK[b.r.status] === 0) - (STATUS_RANK[a.r.status] === 0)) : cmpNum(a.total, b.total),
+  }[sort.key] || byDefault;
+  rows.sort((a, b) => cmp(a, b) * sort.dir || byDefault(a, b));
+  const th = (key, label, cls = "") => `<th class="${cls} ${sort.key === key ? "sorted" : ""}" data-sort="${key}">${label}${sort.key === key ? (sort.dir > 0 ? " ▲" : " ▼") : ""}</th>`;
+  const money = v => v === null ? `<span class="muted">—</span>` : `<span class="num">${fmtMoney(v)}</span>`;
+  return `<div class="gtable-wrap venue-table-wrap"><table class="gtable venue-table">
+    <thead><tr>${th("venue", "Venue")}${th("available", `Available ${esc(when)}?`)}${th("capacity", "Capacity", "r")}${th("status", "Status")}${th("rental", "Venue rental", "r")}${th("fb", "Food & drink", "r")}${th("svctax", "Service + tax", "r")}${th("total", `Total for ${n}`, "r")}<th>What's missing</th></tr></thead>
+    <tbody>${rows.map(({ o, r, rental, fb, addonFb, svcTax, total, missing }) => `<tr data-open-venue="${o.id}" class="${state.plan.picks[d.id] === o.id ? "picked" : ""}">
+      <td class="name">${esc(o.name)}${o.where ? `<span class="sub small muted" style="display:block;font-weight:400">${esc(o.where)}</span>` : ""}</td>
+      <td>${o.available === "yes" ? `<span class="ok">Yes</span>` : o.available === "no" ? `<span class="bad">No</span>` : `<span class="muted">Not confirmed</span>`}</td>
+      <td class="r num ${o.capacity && o.capacity < n ? "bad" : ""}">${o.capacity ? `${o.capacity < n ? "⚠ " : ""}${o.capacity}` : "—"}</td>
+      <td><span class="badge st-${r.status}">${Pricing.STATUS_LABEL[r.status]}</span></td>
+      <td class="r">${r.state.rental === "none" ? `<span class="muted">none</span>` : rental === null ? `<span class="muted small">${r.status === "not_priced" ? "—" : "not quoted"}</span>` : money(rental)}</td>
+      <td class="r">${fb !== null ? money(fb) : r.state.food === "not_included" ? (addonFb ? `<span class="num">${fmtMoney(addonFb)}</span><span class="sub small muted" style="display:block">our quote</span>` : `<span class="warn small">not priced</span>`) : `<span class="muted small">${r.status === "not_priced" ? "—" : "not priced"}</span>`}</td>
+      <td class="r">${svcTax === null ? `<span class="muted">—</span>` : svcTax === "unstated" ? `<span class="warn small">rate not stated</span>` : svcTax === 0 ? `<span class="muted">none</span>` : money(svcTax)}</td>
+      <td class="r">${total === null ? `<span class="muted">Not priced yet</span>` : `<b class="num">${fmtMoney(total)}</b>${r.suffix ? `<span class="sub small warn" style="display:block">${esc(r.suffix)}</span>` : ""}`}</td>
+      <td class="small">${esc(missing)}</td>
+    </tr>`).join("")}</tbody></table></div>
+    <p class="small muted" style="margin:8px 0 18px">Click a column to sort. Default order: available on our held date first, then by total; venues without a complete price sort after complete ones. Click a row to pick it, or use Cards to edit.</p>`;
 }
 
 function renderGuests() {
@@ -1064,6 +1222,9 @@ function bindMain() {
     state.plan.hidden[did] = Object.fromEntries(hiddenIds(decision(did)).filter(id => id !== b.dataset.optionId).map(id => [id, true]));
     savePlan({ hidden: { [did]: { [b.dataset.optionId]: null } } }); render();
   }));
+  main.querySelectorAll("[data-venue-view]").forEach(b => b.addEventListener("click", () => { state.venueView = b.dataset.venueView; try { localStorage.setItem("ww.venueView", state.venueView); } catch {} render(); }));
+  main.querySelectorAll("th[data-sort]").forEach(h => h.addEventListener("click", () => { const k = h.dataset.sort; const cur = state.venueSort || { key: "default", dir: 1 }; state.venueSort = cur.key === k ? { key: k, dir: -cur.dir } : { key: k, dir: 1 }; render(); }));
+  main.querySelectorAll("[data-open-venue]").forEach(r => r.addEventListener("click", () => pick("reception", r.dataset.openVenue)));
   const ndOpen = $("#nd-open"); if (ndOpen) ndOpen.addEventListener("click", () => openOption(decision(state.route), null));
   main.querySelectorAll("[data-edit-option]").forEach(b => b.addEventListener("click", e => {
     e.stopPropagation();
@@ -1169,24 +1330,96 @@ document.getElementById("tabs").addEventListener("click", e => { const b = e.tar
 let editingOption = null; // { d, o } — o is null when adding
 const OPTION_FIELDS = {
   date: [
-    { grid: 3, fields: [["date", "Date", "date"], ["name", "Label", "text", "e.g. Memorial Day weekend"], ["costFactor", "Venue season factor", "select", [["0.9", "0.9× off-peak"], ["1", "1.0× normal"], ["1.05", "1.05× busy"], ["1.1", "1.1× peak"]]]] },
+    { grid: 2, fields: [["date", "Date", "date"], ["name", "Label", "text", "e.g. Memorial Day weekend"]] },
     { fields: [["desc", "Why this date?", "text", "Notes, conflicts, who is in town"]] },
   ],
   event: [
     { grid: 2, fields: [["name", "Name", "text", "e.g. Rooftop at the Grand Hotel"], ["where", "Where", "text", "Venue name or neighborhood"]] },
     { fields: [["address", "Street address (used for the Mass-to-reception distance on the home page)", "text", "123 Main St, City, ST 12345"]] },
     { grid: 5, fields: [["time", "Start time", "text", "6:30 PM"], ["duration", "Duration", "text", "3 hrs"], ["capacity", "Capacity", "number", "max guests"], ["fixed", "Fixed cost ($)", "number", "room, rentals"], ["perGuest", "Per guest ($)", "number", "food, drink"]] },
-    { grid: 2, fields: [["desc", "Description", "text", "What it is like, what is included"], ["link", "Website", "url", "https://"]] },
+    { fields: [["desc", "Description", "text", "What it is like, what is included"]] },
     { grid: 2, fields: [["pros", "Pros (comma separated)", "text", "Walkable, great food"], ["cons", "Cons (comma separated)", "text", "Loud, hard parking"]] },
     { grid: 2, fields: [["estimated", "Price status", "select", [["", "Quoted or confirmed price"], ["1", "Estimate, no final price yet"]]], ["estimateNote", "Estimate note", "text", "e.g. waiting on the venue's quote"]] },
+    { links: true },
+  ],
+  // Reception venues: costs are line items handled by the pricing engine.
+  reception: [
+    { grid: 2, fields: [["name", "Venue", "text", "e.g. The Hay-Adams"], ["where", "Where", "text", "Neighborhood, walk time"]] },
+    { fields: [["address", "Street address (used for the Mass-to-reception distance)", "text", "123 Main St, City, ST 12345"]] },
+    { grid: 5, fields: [["time", "Start time", "text", "5:00 PM"], ["duration", "Duration", "text", "6 hrs"], ["capacity", "Capacity", "number", "max guests"], ["available", "Available on our held date?", "select", [["unknown", "Not confirmed"], ["yes", "Yes"], ["no", "No"]]], ["asOf", "Price as of", "date"]] },
+    { grid: 2, fields: [["rateYear", "Rates are for year", "select", [["", "Not stated"], ["2026", "2026"], ["2027", "2027"], ["2028", "2028"]]], ["pricingNotes", "Pricing notes", "text", "e.g. 10-hour block is $9,800"]] },
+    { lines: true },
+    { coverage: true },
+    { fields: [["desc", "Description and contacts", "textarea", "Who we spoke to, what the package includes"]] },
+    { grid: 2, fields: [["pros", "Pros (comma separated)", "text", "Walkable, great food"], ["cons", "Cons (comma separated)", "text", "Loud, hard parking"]] },
+    { links: true },
   ],
 };
-const RECEPTION_FIELDS = [
-  { grid: 2, fields: [["cateringIncluded", "Catering", "select", [["1", "Included in the venue price"], ["0", "Not included (venue rental only)"]]], ["barIncluded", "Open bar", "select", [["1", "Included in the venue price"], ["0", "Not included (venue rental only)"]]]] },
-];
+const LINE_CATEGORIES = [["rental", "Venue rental"], ["fb", "Food & bar"], ["food", "Food"], ["bar", "Bar"], ["staff", "Staff / labor"], ["other", "Other fee"]];
+const LINE_BASIS = [["flat", "Flat"], ["per_guest", "Per guest"], ["minimum", "Minimum (floor)"]];
+const LINE_STATUS = [["quoted", "Quoted to us"], ["published", "Published rate"], ["not_priced", "Not priced yet"]];
+const COVERAGE_KEYS = [["rental", "Venue rental"], ["food", "Food"], ["bar", "Bar"], ["staff", "Staff / labor"], ["other", "Other required fees"]];
+const COVERAGE_VALUES = [["auto", "Work it out from the lines"], ["included", "Included in the price"], ["not_included", "Not included (outside vendor)"], ["not_priced", "Not priced yet"], ["none", "None / not charged"]];
+let editLines = [], editLinks = [];
+function renderLinesEditor() {
+  const rows = editLines.map((l, i) => `<tr data-line="${i}">
+    <td><input data-lf="label" value="${esc(l.label || "")}" placeholder="e.g. F&B minimum"></td>
+    <td><select data-lf="category">${LINE_CATEGORIES.map(([v, t]) => `<option value="${v}" ${l.category === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>
+    <td><select data-lf="basis">${LINE_BASIS.map(([v, t]) => `<option value="${v}" ${l.basis === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>
+    <td><input data-lf="amount" type="number" step="0.01" min="0" value="${l.amount === null || l.amount === undefined ? "" : l.amount}" placeholder="not priced"></td>
+    <td><input data-lf="qty" type="number" step="1" min="1" value="${l.qty || 1}" class="narrow"></td>
+    <td><input data-lf="servicePct" type="number" step="0.01" min="0" max="100" value="${l.servicePct === null || l.servicePct === undefined ? "" : l.servicePct}" placeholder="not stated" class="narrow"></td>
+    <td class="c"><input data-lf="serviceTaxable" type="checkbox" ${l.serviceTaxable ? "checked" : ""} title="Tax applies to the service charge"></td>
+    <td><input data-lf="taxPct" type="number" step="0.01" min="0" max="100" value="${l.taxPct === null || l.taxPct === undefined ? "" : l.taxPct}" placeholder="not stated" class="narrow"></td>
+    <td class="c"><input data-lf="taxable" type="checkbox" ${l.taxable !== false ? "checked" : ""} title="Tax applies to this amount"></td>
+    <td><select data-lf="status">${LINE_STATUS.map(([v, t]) => `<option value="${v}" ${(l.status || (l.amount === null ? "not_priced" : "quoted")) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>
+    <td><input data-lf="source" value="${esc(l.source || "")}" placeholder="menu PDF, Sept 22 email"></td>
+    <td><button type="button" class="linkish rm" data-remove-line="${i}" title="Remove line">✕</button></td>
+  </tr>`).join("");
+  return `<div class="field"><span>Cost lines. Leave a percentage blank when the venue has not stated it. Leave the amount blank for something the venue has not priced yet.</span></div>
+  <div class="lines-wrap"><table class="lines"><thead><tr><th>Line</th><th>Covers</th><th>Basis</th><th>Amount $</th><th>Qty</th><th>Service %</th><th title="Tax applies to the service charge">Svc taxed</th><th>Tax %</th><th title="Tax applies to this amount">Amt taxed</th><th>Status</th><th>Source</th><th></th></tr></thead><tbody>${rows || `<tr><td colspan="12" class="muted small">No cost lines yet. Add one, or leave empty for "No price yet".</td></tr>`}</tbody></table></div>
+  <div><button type="button" class="btn ghost small" id="o-add-line">+ Add a cost line</button></div>`;
+}
+function renderLinksEditor() {
+  return `<div class="field"><span>Links: website, menus, rate sheets, proposals, the Gmail thread</span></div>
+  <div class="links-editor">${editLinks.map((l, i) => `<div class="grid2 linkrow" data-link="${i}"><input data-kf="label" value="${esc(l.label || "")}" placeholder="Label, e.g. Wedding menus PDF"><div style="display:flex;gap:6px"><input data-kf="url" type="url" value="${esc(l.url || "")}" placeholder="https://"><button type="button" class="linkish rm" data-remove-link="${i}" title="Remove link">✕</button></div></div>`).join("")}</div>
+  <div><button type="button" class="btn ghost small" id="o-add-link">+ Add a link</button></div>`;
+}
+function renderCoverageEditor(cov) {
+  return `<div class="field"><span>What the price covers, when the lines alone do not make it obvious</span></div>
+  <div class="grid5">${COVERAGE_KEYS.map(([k, label]) => `<div class="field"><span>${label}</span><select id="o-cov-${k}">${COVERAGE_VALUES.map(([v, t]) => `<option value="${v}" ${(cov[k] || "auto") === v ? "selected" : ""}>${t}</option>`).join("")}</select></div>`).join("")}</div>`;
+}
+function readLinesFromDom() {
+  return [...document.querySelectorAll("#option-fields tr[data-line]")].map((tr, i) => {
+    const g = f => tr.querySelector(`[data-lf="${f}"]`);
+    const numOrNull = f => { const v = g(f).value.trim(); return v === "" ? null : Number(v); };
+    return { id: editLines[i] && editLines[i].id, label: g("label").value.trim(), category: g("category").value, basis: g("basis").value,
+      amount: numOrNull("amount"), qty: Math.max(1, Math.round(Number(g("qty").value) || 1)), servicePct: numOrNull("servicePct"), serviceTaxable: g("serviceTaxable").checked,
+      taxPct: numOrNull("taxPct"), taxable: g("taxable").checked, status: g("status").value, source: g("source").value.trim(), note: editLines[i] && editLines[i].note || "" };
+  });
+}
+function readLinksFromDom() {
+  return [...document.querySelectorAll("#option-fields .linkrow")].map(row => ({ label: row.querySelector('[data-kf="label"]').value.trim(), url: row.querySelector('[data-kf="url"]').value.trim() }));
+}
+function bindEditors() {
+  const linesBox = document.getElementById("o-lines-box"), linksBox = document.getElementById("o-links-box");
+  if (linesBox) {
+    linesBox.innerHTML = renderLinesEditor();
+    linesBox.querySelector("#o-add-line").addEventListener("click", () => { editLines = readLinesFromDom(); editLines.push({ label: "", category: "fb", basis: "flat", amount: null, qty: 1, servicePct: null, serviceTaxable: false, taxPct: null, taxable: true, status: "quoted", source: "" }); bindEditors(); linesBox.querySelector("tr[data-line]:last-child input").focus(); });
+    linesBox.querySelectorAll("[data-remove-line]").forEach(b => b.addEventListener("click", () => { editLines = readLinesFromDom(); editLines.splice(+b.dataset.removeLine, 1); bindEditors(); }));
+  }
+  if (linksBox) {
+    linksBox.innerHTML = renderLinksEditor();
+    linksBox.querySelector("#o-add-link").addEventListener("click", () => { if (linesBox) editLines = readLinesFromDom(); editLinks = readLinksFromDom(); editLinks.push({ label: "", url: "" }); bindEditors(); linksBox.querySelector(".linkrow:last-child input").focus(); });
+    linksBox.querySelectorAll("[data-remove-link]").forEach(b => b.addEventListener("click", () => { if (linesBox) editLines = readLinesFromDom(); editLinks = readLinksFromDom(); editLinks.splice(+b.dataset.removeLink, 1); bindEditors(); }));
+  }
+}
 function fieldValue(o, key) {
-  if (key === "cateringIncluded" || key === "barIncluded") return o && o[key] === false ? "0" : "1";
-  if (!o) return key === "costFactor" ? "1" : "";
+  if (key === "available") return (o && o.available) || "unknown";
+  if (key === "asOf") return (o && o.pricing && o.pricing.asOf) || "";
+  if (key === "rateYear") return (o && o.pricing && o.pricing.rateYear) ? String(o.pricing.rateYear) : "";
+  if (key === "pricingNotes") return (o && o.pricing && o.pricing.notes) || "";
+  if (!o) return "";
   const v = o[key];
   if (v === undefined || v === null) return "";
   if (Array.isArray(v)) return v.join(", ");
@@ -1196,14 +1429,25 @@ function fieldValue(o, key) {
 function openOption(d, o) {
   if (!d) return;
   editingOption = { d, o };
-  const kind = d.id === "date" ? "date" : "event";
+  const kind = d.id === "date" ? "date" : d.id === "reception" ? "reception" : "event";
   $("#option-dialog-title").textContent = o ? `Edit: ${o.name}` : `Add an option to ${d.title}`;
-  const rows = OPTION_FIELDS[kind].concat(d.id === "reception" ? RECEPTION_FIELDS : []);
-  $("#option-fields").innerHTML = rows.map(row => `<div class="${row.grid ? "grid" + row.grid : ""}">${row.fields.map(([key, label, type, extra]) => {
-    const id = "o-" + key, val = fieldValue(o, key);
-    if (type === "select") return `<div class="field"><span>${label}</span><select id="${id}">${extra.map(([v, t]) => `<option value="${v}" ${String(val) === v ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
-    return `<div class="field"><span>${label}</span><input id="${id}" type="${type}" value="${esc(val)}" placeholder="${esc(extra || "")}" ${type === "number" ? 'min="0"' : ""} ${type === "date" ? 'min="2027-01-01" max="2028-12-31"' : ""}></div>`;
-  }).join("")}</div>`).join("");
+  const pr = o ? Pricing.pricingOf(o) : { lines: [], coverage: {} };
+  editLines = JSON.parse(JSON.stringify(pr.lines || []));
+  editLinks = o ? linksOf(o).map(l => ({ ...l })) : [];
+  const rows = OPTION_FIELDS[kind];
+  $("#option-fields").innerHTML = rows.map(row => {
+    if (row.lines) return `<div id="o-lines-box"></div>`;
+    if (row.links) return `<div id="o-links-box"></div>`;
+    if (row.coverage) return renderCoverageEditor(pr.coverage || {});
+    return `<div class="${row.grid ? "grid" + row.grid : ""}">${row.fields.map(([key, label, type, extra]) => {
+      const id = "o-" + key, val = fieldValue(o, key);
+      if (type === "select") return `<div class="field"><span>${label}</span><select id="${id}">${extra.map(([v, t]) => `<option value="${v}" ${String(val) === v ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
+      if (type === "textarea") return `<div class="field"><span>${label}</span><textarea id="${id}" rows="2" placeholder="${esc(extra || "")}">${esc(val)}</textarea></div>`;
+      return `<div class="field"><span>${label}</span><input id="${id}" type="${type}" value="${esc(val)}" placeholder="${esc(extra || "")}" ${type === "number" ? 'min="0" step="0.01"' : ""} ${type === "date" && key === "date" ? 'min="2027-01-01" max="2028-12-31"' : ""}></div>`;
+    }).join("")}</div>`;
+  }).join("");
+  bindEditors();
+  $("#option-dialog").classList.toggle("xwide", kind === "reception");
   $("#o-remove").hidden = !o;
   $("#o-save").textContent = o ? "Save changes" : "Add option";
   $("#option-dialog").showModal();
@@ -1227,16 +1471,34 @@ $("#option-form").addEventListener("submit", e => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { toast("Pick a date first"); $("#o-date").focus(); return; }
     if (optionsOf(d).some(x => x.date === dateStr && x.id !== (o && o.id))) { toast("That date is already on the list"); return; }
     const dt = new Date(dateStr + "T12:00:00");
-    fields = { date: dateStr, costFactor: num("costFactor") || 1, name: v("name") || dt.toLocaleDateString("en-US", { month: "long", day: "numeric" }), desc: v("desc") };
+    fields = { date: dateStr, name: v("name") || dt.toLocaleDateString("en-US", { month: "long", day: "numeric" }), desc: v("desc") };
     if (dt.getDay() !== 6) toast(`Heads up: that is a ${weekday(dt)}, not a Saturday.`);
+  } else if (d.id === "reception") {
+    if (!v("name")) { toast("Give the venue a name"); $("#o-name").focus(); return; }
+    const lines = readLinesFromDom().filter(l => l.label || l.amount !== null);
+    for (const l of lines) {
+      if (!l.label) { toast("Every cost line needs a label"); return; }
+      if ([l.amount, l.servicePct, l.taxPct].some(x => x !== null && !Number.isFinite(x))) { toast(`Check the numbers on "${l.label}"`); return; }
+    }
+    lines.forEach((l, i) => { if (!l.id) l.id = "l-" + uid(); if (l.amount === null) l.status = "not_priced"; else if (l.status === "not_priced") l.status = "quoted"; });
+    const coverage = {}; COVERAGE_KEYS.forEach(([k]) => { const val = $("#o-cov-" + k).value; if (val && val !== "auto") coverage[k] = val; });
+    const links = readLinksFromDom().filter(l => l.url).map(l => ({ label: l.label || "Link", url: /^https?:\/\//.test(l.url) ? l.url : "https://" + l.url }));
+    fields = { name: v("name"), where: v("where"), address: v("address"), time: v("time"), duration: v("duration"), capacity: num("capacity"),
+      available: v("available") || "unknown", desc: v("desc"), pros: list("pros"), cons: list("cons"), links,
+      pricing: { lines, coverage, asOf: /^\d{4}-\d{2}-\d{2}$/.test(v("asOf")) ? v("asOf") : null, rateYear: num("rateYear") || null, notes: v("pricingNotes") } };
   } else {
     if (!v("name")) { toast("Give the option a name"); $("#o-name").focus(); return; }
+    const links = readLinksFromDom().filter(l => l.url).map(l => ({ label: l.label || "Link", url: /^https?:\/\//.test(l.url) ? l.url : "https://" + l.url }));
     fields = { name: v("name"), where: v("where"), address: v("address"), time: v("time"), duration: v("duration"), capacity: num("capacity"),
-      fixed: num("fixed") || 0, perGuest: num("perGuest") || 0, desc: v("desc"), pros: list("pros"), cons: list("cons"),
-      link: /^https?:\/\//.test(v("link")) ? v("link") : undefined, estimated: v("estimated") === "1", estimateNote: v("estimateNote") };
-    if (d.id === "reception") { fields.cateringIncluded = v("cateringIncluded") !== "0"; fields.barIncluded = v("barIncluded") !== "0"; }
+      fixed: num("fixed") || 0, perGuest: num("perGuest") || 0, desc: v("desc"), pros: list("pros"), cons: list("cons"), links,
+      estimated: v("estimated") === "1", estimateNote: v("estimateNote") };
   }
   Object.keys(fields).forEach(k => (fields[k] === undefined || fields[k] === "") && delete fields[k]);
+  // Keys this form owns. Anything else on the record (older fields, ids) is kept as is.
+  const MANAGED = d.id === "date" ? ["date", "name", "desc"] : d.id === "reception"
+    ? ["name", "where", "address", "time", "duration", "capacity", "available", "desc", "pros", "cons", "links", "pricing"]
+    : ["name", "where", "address", "time", "duration", "capacity", "fixed", "perGuest", "desc", "pros", "cons", "links", "estimated", "estimateNote"];
+  const mergeInto = base => { const out = { ...base }; MANAGED.forEach(k => { if (k in fields) out[k] = fields[k]; else delete out[k]; }); return out; };
   let patch;
   if (!o) {
     const added = { id: "custom-" + uid(), custom: true, ...fields };
@@ -1245,7 +1507,7 @@ $("#option-form").addEventListener("submit", e => {
     patch = { customOptions: { [d.id]: state.plan.customOptions[d.id] } };
     toast(`Added ${added.name}`);
   } else if (o.custom) {
-    state.plan.customOptions[d.id] = customOptions(d).map(x => x.id === o.id ? { id: o.id, custom: true, ...fields } : x);
+    state.plan.customOptions[d.id] = customOptions(d).map(x => x.id === o.id ? mergeInto(x) : x);
     patch = { customOptions: { [d.id]: state.plan.customOptions[d.id] } };
     toast("Saved");
   } else {
@@ -1254,11 +1516,8 @@ $("#option-form").addEventListener("submit", e => {
     if (!state.plan.overrides[d.id]) state.plan.overrides[d.id] = {};
     const base = byId(d.options, o.id);
     const ov = {};
-    for (const [k, val] of Object.entries(fields)) {
-      const baseVal = (k === "cateringIncluded" || k === "barIncluded") && base[k] === undefined ? true : base[k];
-      if (JSON.stringify(val) !== JSON.stringify(baseVal)) ov[k] = val;
-    }
-    for (const k of ["where", "address", "time", "duration", "capacity", "desc", "pros", "cons", "link", "estimateNote"]) if (!(k in fields) && base[k] !== undefined) ov[k] = k === "pros" || k === "cons" ? [] : k === "capacity" ? 0 : "";
+    for (const [k, val] of Object.entries(fields)) if (JSON.stringify(val) !== JSON.stringify(base[k])) ov[k] = val;
+    for (const k of MANAGED) if (!(k in fields) && base[k] !== undefined && k !== "name") ov[k] = Array.isArray(base[k]) ? [] : typeof base[k] === "number" ? 0 : typeof base[k] === "object" ? null : "";
     if (!("estimated" in fields) && base.estimated) ov.estimated = false;
     if (Object.keys(ov).length) state.plan.overrides[d.id][o.id] = ov; else delete state.plan.overrides[d.id][o.id];
     patch = { overrides: { [d.id]: { [o.id]: Object.keys(ov).length ? ov : null } } };

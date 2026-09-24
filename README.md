@@ -69,3 +69,21 @@ addresses with OpenStreetMap's Nominatim and routes with the OSRM servers run
 by FOSSGIS (routing.openstreetmap.de), caching each result in the database.
 Set `CONTACT_URL` to identify the app to those services (defaults to the
 site's URL).
+
+## Venue pricing model
+
+Reception venues carry a `pricing` block of cost lines instead of a single
+fixed or per-guest number. Each line has a label, what it covers (venue
+rental, food, bar, food & bar, staff, other), a basis (flat, per guest, or a
+minimum that acts as a floor), an amount in dollars and cents, a quantity,
+service and tax percentages that are `null` when the venue has not stated
+them, flags for whether tax applies to the amount and to the service charge,
+a source, and a status (quoted, published, not priced). The engine in
+`public/pricing.js` turns those into a status (Complete, Venue only,
+Incomplete, No price yet), a total, a "what's included" table, the math and
+a list of what is still missing. It never invents a number: an unstated rate
+is reported as "rate not stated" and an unpriced venue shows no dollar figure.
+
+`npm test` runs the pricing tests in `tests/`. The one-time migration in
+`migrations/` attached cost lines to the venues that existed before this
+model and runs harmlessly on every start.

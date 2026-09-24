@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { migratePlan } from "./migrations/venue-pricing-2026-09.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -123,13 +124,41 @@ const isObj = v => v && typeof v === "object" && !Array.isArray(v);
 function cleanOptionFields(o, out) {
   if (typeof o.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.date)) out.date = o.date;
   if (Number.isFinite(Number(o.costFactor))) out.costFactor = Math.min(3, Math.max(0.1, Number(o.costFactor)));
-  for (const k of ["where", "address", "desc", "time", "duration"]) if (o[k]) out[k] = String(o[k]).slice(0, 300);
+  for (const k of ["where", "address", "time", "duration"]) if (o[k]) out[k] = String(o[k]).slice(0, 300);
+  if (o.desc) out.desc = String(o.desc).slice(0, 4000);
+  if (Array.isArray(o.links)) out.links = o.links.slice(0, 20).map(l => isObj(l) && typeof l.url === "string" && /^https?:\/\/[^\s]{1,1000}$/.test(l.url) ? { label: String(l.label || "Link").slice(0, 80), url: l.url } : null).filter(Boolean);
+  if (["yes", "no", "unknown"].includes(o.available)) out.available = o.available;
+  if (isObj(o.pricing)) out.pricing = cleanPricing(o.pricing);
   for (const k of ["fixed", "perGuest", "capacity"]) if (o[k] !== undefined && Number.isFinite(Number(o[k]))) out[k] = Math.max(0, Number(o[k]));
   for (const k of ["pros", "cons"]) if (Array.isArray(o[k])) out[k] = o[k].slice(0, 8).map(x => String(x).slice(0, 120)).filter(Boolean);
   if (typeof o.link === "string" && /^https?:\/\/[^\s]{1,500}$/.test(o.link)) out.link = o.link;
   if ("estimated" in o) out.estimated = !!o.estimated;
   for (const k of ["cateringIncluded", "barIncluded"]) if (k in o) out[k] = !!o[k];
   if (o.estimateNote) out.estimateNote = String(o.estimateNote).slice(0, 300);
+  return out;
+}
+const numOrNull = v => (v === null || v === undefined || v === "") ? null : (Number.isFinite(Number(v)) ? Number(v) : null);
+function cleanPricing(p) {
+  const out = { lines: [], coverage: {}, asOf: null, rateYear: null, notes: "" };
+  if (Array.isArray(p.lines)) out.lines = p.lines.slice(0, 40).filter(isObj).map((l, i) => ({
+    id: typeof l.id === "string" && /^[\w.-]{1,60}$/.test(l.id) ? l.id : "l" + i + "-" + Date.now().toString(36),
+    label: String(l.label || "").slice(0, 120),
+    category: ["rental", "food", "bar", "fb", "staff", "other"].includes(l.category) ? l.category : "other",
+    basis: ["flat", "per_guest", "minimum"].includes(l.basis) ? l.basis : "flat",
+    amount: numOrNull(l.amount) === null ? null : Math.round(Math.max(0, numOrNull(l.amount)) * 100) / 100,
+    qty: Math.max(1, Math.round(Number(l.qty) || 1)),
+    servicePct: numOrNull(l.servicePct) === null ? null : Math.min(100, Math.max(0, numOrNull(l.servicePct))),
+    serviceTaxable: !!l.serviceTaxable,
+    taxPct: numOrNull(l.taxPct) === null ? null : Math.min(100, Math.max(0, numOrNull(l.taxPct))),
+    taxable: l.taxable !== false,
+    source: String(l.source || "").slice(0, 300),
+    status: ["quoted", "published", "not_priced"].includes(l.status) ? l.status : (numOrNull(l.amount) === null ? "not_priced" : "quoted"),
+    note: String(l.note || "").slice(0, 300),
+  }));
+  if (isObj(p.coverage)) for (const k of ["rental", "food", "bar", "staff", "other"]) if (["auto", "included", "not_included", "not_priced", "none"].includes(p.coverage[k])) out.coverage[k] = p.coverage[k];
+  if (typeof p.asOf === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.asOf)) out.asOf = p.asOf;
+  if (Number.isInteger(Number(p.rateYear)) && Number(p.rateYear) > 2000 && Number(p.rateYear) < 2100) out.rateYear = Number(p.rateYear);
+  if (p.notes) out.notes = String(p.notes).slice(0, 1000);
   return out;
 }
 function cleanCustomOption(o) {
@@ -332,5 +361,12 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   store = process.env.DATABASE_URL ? new PgStore(process.env.DATABASE_URL) : new FileStore(path.join(__dirname, "data", "local.json"));
   await store.init();
   console.log(`Storage: ${process.env.DATABASE_URL ? "Postgres" : "local JSON file (data/local.json)"}`);
+  try {
+    const { plan } = await store.getState();
+    if (plan) {
+      const changed = migratePlan(plan);
+      if (changed) { await store.setPlan(cleanPlan(plan)); console.log(`Venue pricing migration: updated ${changed} record(s).`); }
+    }
+  } catch (e) { console.error("Venue pricing migration failed (data left untouched):", e); }
   app.listen(PORT, () => console.log(`Wedding Weekend listening on http://localhost:${PORT}`));
 })().catch(e => { console.error("Failed to start:", e); process.exit(1); });
