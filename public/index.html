@@ -247,7 +247,16 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .viewtoggle{display:flex;gap:2px;margin-top:10px;border:1px solid var(--line);border-radius:999px;padding:3px;width:max-content}
 .vt{border:0;background:none;padding:6px 14px;border-radius:999px;font-weight:600;color:var(--ink-2)}
 .vt.on{background:var(--accent);color:var(--accent-ink)}
-.venue-table{min-width:1000px}
+.venue-table{min-width:1080px}
+.rankcell{white-space:nowrap;width:118px}
+.ranknum{font-family:var(--display);font-size:20px;font-weight:600;margin-right:6px;vertical-align:middle}
+.rankbtns{display:inline-flex;gap:2px;vertical-align:middle}
+.rk{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:2px 6px;font-size:11px;line-height:1.2;color:var(--ink-2);cursor:pointer}
+.rk:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.rk:disabled{opacity:.35;cursor:default}
+.rk.x{color:var(--muted)}
+.rk.add{padding:4px 8px;font-weight:600;color:var(--accent);border-color:var(--line-strong)}
+.badge.rank{background:var(--ink);color:var(--bg)}
 .venue-table th{cursor:pointer;user-select:none;white-space:nowrap}
 .venue-table th.sorted{color:var(--ink)}
 .venue-table tbody tr.picked{background:var(--gold-soft)}
@@ -593,7 +602,7 @@ const EXTRAS = [
 
 /* ---------------- state + storage ---------------- */
 const state = {
-  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {}, customOptions: {}, overrides: {}, hidden: {}, addons: {}, plusOneRate: 100 },
+  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {}, customOptions: {}, overrides: {}, hidden: {}, addons: {}, ranking: {}, plusOneRate: 100 },
   guests: [],           // [{id, name, side, group, party, status, events:{}, notes, createdAt}]
   storage: "loading",   // loading | server | offline
   route: "home",
@@ -605,7 +614,7 @@ function defaultExtras() { const o = {}; EXTRAS.forEach(e => o[e.id] = e.on); re
 function normalizePlan(p) {
   p = p || {};
   return { picks: p.picks || {}, extras: p.extras || defaultExtras(), notes: p.notes || {},
-    customOptions: p.customOptions || {}, overrides: p.overrides || {}, hidden: p.hidden || {}, addons: p.addons || {}, plusOneRate: typeof p.plusOneRate === "number" ? p.plusOneRate : 100 };
+    customOptions: p.customOptions || {}, overrides: p.overrides || {}, hidden: p.hidden || {}, addons: p.addons || {}, ranking: p.ranking || {}, plusOneRate: typeof p.plusOneRate === "number" ? p.plusOneRate : 100 };
 }
 
 /* API. Every call returns the full shared state, which we apply. */
@@ -635,7 +644,7 @@ function applyState(st, { force = false } = {}) {
    shared plan. Sections merge by key (picks, notes, extras, hidden,
    customOptions; overrides one level deeper); a null deletes that key. This
    keeps two browsers from overwriting each other's changes. */
-const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2, addons: 2 };
+const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2, addons: 2, ranking: 1 };
 function mergePatch(target, patch, depth) {
   const out = { ...(target || {}) };
   for (const [k, v] of Object.entries(patch)) {
@@ -1064,7 +1073,7 @@ function renderVenueCard(d, o, n, isPicked) {
   const minNote = r.minimum ? (r.minimum.sets ? `Minimum sets the price${r.minimum.until !== null ? ` until ${r.minimum.until} guests` : ""}.` : `${fmtMoney(r.minimum.amount)} minimum is met by the per-guest spend.`) : "";
   return `<div class="opt venue ${isPicked ? "picked" : ""}" data-pick="${d.id}" data-option="${o.id}" role="button" tabindex="0" aria-pressed="${isPicked}">
     <div class="top"><div><h3>${esc(o.name)}</h3>${o.where ? `<p class="where">${esc(o.where)}</p>` : ""}${o.address ? `<p class="where"><a class="maplink" href="${mapsSearch(o.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(o.address)}</a></p>` : ""}</div><span class="mark">${isPicked ? "✓" : ""}</span></div>
-    <div class="badges"><span class="badge st-${r.status}">${Pricing.STATUS_LABEL[r.status]}</span>${availabilityTag(o)}${o.capacity ? `<span class="tag ${over ? "warn" : ""}">${over ? "⚠ " : ""}Capacity ${o.capacity}</span>` : ""}</div>
+    <div class="badges">${rankOf(d, o.id) ? `<span class="badge rank num">#${rankOf(d, o.id)}</span>` : ""}<span class="badge st-${r.status}">${Pricing.STATUS_LABEL[r.status]}</span>${availabilityTag(o)}${o.capacity ? `<span class="tag ${over ? "warn" : ""}">${over ? "⚠ " : ""}Capacity ${o.capacity}</span>` : ""}</div>
     ${r.total === null ? `<div class="price none"><span class="v">Not priced yet</span><span class="l">${esc((o.pricing && o.pricing.notes) || "No figure from the venue yet.")}</span></div>`
       : `<div class="price"><span class="v num">${fmtMoney(r.total)}</span>${r.suffix ? `<span class="suffix">${esc(r.suffix)}</span>` : ""}<span class="l">for ${n} guests${minNote ? ` · ${esc(minNote)}` : ""}</span></div>`}
     <table class="incl-table"><tbody>${r.rows.map(row => `<tr><th>${esc(row.label)}</th><td>${rowStateText(row)}</td></tr>`).join("")}</tbody></table>
@@ -1080,6 +1089,15 @@ function renderVenueCard(d, o, n, isPicked) {
       <button class="linkish rm" data-remove-option="${d.id}" data-option-id="${o.id}">Remove</button>
     </div>
   </div>`;
+}
+/* Our own ranking of venues: an ordered list of option ids per decision, shared. */
+function rankingOf(d) { const r = state.plan.ranking && state.plan.ranking[d.id]; const live = new Set(optionsOf(d).map(o => o.id)); return Array.isArray(r) ? r.filter(id => live.has(id)) : []; }
+function rankOf(d, id) { const i = rankingOf(d).indexOf(id); return i < 0 ? null : i + 1; }
+function setRanking(d, list) { if (!state.plan.ranking) state.plan.ranking = {}; state.plan.ranking[d.id] = list; savePlan({ ranking: { [d.id]: list } }); render(); }
+function moveRank(d, id, delta) {
+  const list = rankingOf(d); const i = list.indexOf(id); if (i < 0) return;
+  const j = Math.max(0, Math.min(list.length - 1, i + delta)); if (i === j) return;
+  list.splice(i, 1); list.splice(j, 0, id); setRanking(d, list);
 }
 const AVAIL_RANK = { yes: 0, unknown: 1, no: 2 };
 const STATUS_RANK = { complete: 0, incomplete: 1, venue_only: 1, not_priced: 2 };
@@ -1097,11 +1115,13 @@ function renderVenueTable(d, n) {
       missing: r.missing.join("; ") || (r.status === "complete" ? "Nothing" : ""),
     };
   });
-  const sort = state.venueSort || { key: "default", dir: 1 };
-  const cmpNum = (a, b) => (a === null ? 1 : b === null ? -1 : a - b);
+  const ranking = rankingOf(d);
+  const sort = state.venueSort || { key: ranking.length ? "rank" : "default", dir: 1 };
+  const cmpNum = (a, b) => (a === null && b === null ? 0 : a === null ? 1 : b === null ? -1 : a - b);
   const byDefault = (a, b) => (AVAIL_RANK[a.o.available || "unknown"] - AVAIL_RANK[b.o.available || "unknown"]) || (STATUS_RANK[a.r.status] - STATUS_RANK[b.r.status]) || cmpNum(a.total, b.total) || a.o.name.localeCompare(b.o.name);
   const cmp = {
     default: byDefault,
+    rank: (a, b) => cmpNum(rankOf(d, a.o.id), rankOf(d, b.o.id)),
     venue: (a, b) => a.o.name.localeCompare(b.o.name),
     available: (a, b) => AVAIL_RANK[a.o.available || "unknown"] - AVAIL_RANK[b.o.available || "unknown"],
     capacity: (a, b) => cmpNum(a.o.capacity || null, b.o.capacity || null),
@@ -1115,8 +1135,9 @@ function renderVenueTable(d, n) {
   const th = (key, label, cls = "") => `<th class="${cls} ${sort.key === key ? "sorted" : ""}" data-sort="${key}">${label}${sort.key === key ? (sort.dir > 0 ? " ▲" : " ▼") : ""}</th>`;
   const money = v => v === null ? `<span class="muted">—</span>` : `<span class="num">${fmtMoney(v)}</span>`;
   return `<div class="gtable-wrap venue-table-wrap"><table class="gtable venue-table">
-    <thead><tr>${th("venue", "Venue")}${th("available", `Available ${esc(when)}?`)}${th("capacity", "Capacity", "r")}${th("status", "Status")}${th("rental", "Venue rental", "r")}${th("fb", "Food & drink", "r")}${th("svctax", "Service + tax", "r")}${th("total", `Total for ${n}`, "r")}<th>What's missing</th></tr></thead>
-    <tbody>${rows.map(({ o, r, rental, fb, addonFb, svcTax, total, missing }) => `<tr data-open-venue="${o.id}" class="${state.plan.picks[d.id] === o.id ? "picked" : ""}">
+    <thead><tr>${th("rank", "Our rank", "rankcol")}${th("venue", "Venue")}${th("available", `Available ${esc(when)}?`)}${th("capacity", "Capacity", "r")}${th("status", "Status")}${th("rental", "Venue rental", "r")}${th("fb", "Food & drink", "r")}${th("svctax", "Service + tax", "r")}${th("total", `Total for ${n}`, "r")}<th>What's missing</th></tr></thead>
+    <tbody>${rows.map(({ o, r, rental, fb, addonFb, svcTax, total, missing }) => { const rk = rankOf(d, o.id); return `<tr data-open-venue="${o.id}" class="${state.plan.picks[d.id] === o.id ? "picked" : ""}">
+      <td class="rankcell">${rk ? `<span class="ranknum num">#${rk}</span><span class="rankbtns"><button type="button" class="rk" data-rank-move="-1" data-rank-id="${o.id}" title="Move up" ${rk === 1 ? "disabled" : ""}>▲</button><button type="button" class="rk" data-rank-move="1" data-rank-id="${o.id}" title="Move down" ${rk === ranking.length ? "disabled" : ""}>▼</button><button type="button" class="rk x" data-rank-remove="${o.id}" title="Remove from ranking">✕</button></span>` : `<button type="button" class="rk add" data-rank-add="${o.id}" title="Add to our ranking">+ rank</button>`}</td>
       <td class="name">${esc(o.name)}${o.where ? `<span class="sub small muted" style="display:block;font-weight:400">${esc(o.where)}</span>` : ""}</td>
       <td>${o.available === "yes" ? `<span class="ok">Yes</span>` : o.available === "no" ? `<span class="bad">No</span>` : `<span class="muted">Not confirmed</span>`}</td>
       <td class="r num ${o.capacity && o.capacity < n ? "bad" : ""}">${o.capacity ? `${o.capacity < n ? "⚠ " : ""}${o.capacity}` : "—"}</td>
@@ -1126,8 +1147,8 @@ function renderVenueTable(d, n) {
       <td class="r">${svcTax === null ? `<span class="muted">—</span>` : svcTax === "unstated" ? `<span class="warn small">rate not stated</span>` : svcTax === 0 ? `<span class="muted">none</span>` : money(svcTax)}</td>
       <td class="r">${total === null ? `<span class="muted">Not priced yet</span>` : `<b class="num">${fmtMoney(total)}</b>${r.suffix ? `<span class="sub small warn" style="display:block">${esc(r.suffix)}</span>` : ""}`}</td>
       <td class="small">${esc(missing)}</td>
-    </tr>`).join("")}</tbody></table></div>
-    <p class="small muted" style="margin:8px 0 18px">Click a column to sort. Default order: available on our held date first, then by total; venues without a complete price sort after complete ones. Click a row to pick it, or use Cards to edit.</p>`;
+    </tr>`; }).join("")}</tbody></table></div>
+    <p class="small muted" style="margin:8px 0 18px">Use "+ rank" to add a venue to our ranking and the arrows to reorder; the ranking is shared and saved. Click any other column to sort by it${ranking.length ? ", or click Our rank to return to the ranking" : ""}. Unranked venues sort by availability, then total. Click a row to pick it, or use Cards to edit.</p>`;
 }
 
 function renderGuests() {
@@ -1224,7 +1245,10 @@ function bindMain() {
   }));
   main.querySelectorAll("[data-venue-view]").forEach(b => b.addEventListener("click", () => { state.venueView = b.dataset.venueView; try { localStorage.setItem("ww.venueView", state.venueView); } catch {} render(); }));
   main.querySelectorAll("th[data-sort]").forEach(h => h.addEventListener("click", () => { const k = h.dataset.sort; const cur = state.venueSort || { key: "default", dir: 1 }; state.venueSort = cur.key === k ? { key: k, dir: -cur.dir } : { key: k, dir: 1 }; render(); }));
-  main.querySelectorAll("[data-open-venue]").forEach(r => r.addEventListener("click", () => pick("reception", r.dataset.openVenue)));
+  main.querySelectorAll("[data-open-venue]").forEach(r => r.addEventListener("click", e => { if (e.target.closest(".rk")) return; pick("reception", r.dataset.openVenue); }));
+  main.querySelectorAll("[data-rank-add]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); const d = decision("reception"); setRanking(d, rankingOf(d).concat([b.dataset.rankAdd])); }));
+  main.querySelectorAll("[data-rank-remove]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); const d = decision("reception"); setRanking(d, rankingOf(d).filter(id => id !== b.dataset.rankRemove)); }));
+  main.querySelectorAll("[data-rank-move]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); moveRank(decision("reception"), b.dataset.rankId, +b.dataset.rankMove); }));
   const ndOpen = $("#nd-open"); if (ndOpen) ndOpen.addEventListener("click", () => openOption(decision(state.route), null));
   main.querySelectorAll("[data-edit-option]").forEach(b => b.addEventListener("click", e => {
     e.stopPropagation();

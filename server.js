@@ -203,10 +203,12 @@ function cleanPlan(p) {
     for (const k of ["perGuest", "fixed"]) if (a[k] !== undefined && Number.isFinite(Number(a[k]))) out[k] = Math.max(0, Number(a[k]));
     addons[sec] = out;
   }
+  const ranking = {};
+  if (isObj(p.ranking)) for (const [did, ids] of Object.entries(p.ranking)) if (/^[\w-]{1,40}$/.test(did) && Array.isArray(ids)) ranking[did] = [...new Set(ids.filter(id => typeof id === "string" && /^[\w.-]{1,60}$/.test(id)))].slice(0, 200);
   const rate = Number(p.plusOneRate);
   return {
     picks: isObj(p.picks) ? p.picks : {}, extras: isObj(p.extras) ? p.extras : {}, notes: isObj(p.notes) ? p.notes : {},
-    customOptions, overrides, hidden, addons, plusOneRate: Number.isFinite(rate) ? Math.min(100, Math.max(0, Math.round(rate))) : 100,
+    customOptions, overrides, hidden, addons, ranking, plusOneRate: Number.isFinite(rate) ? Math.min(100, Math.max(0, Math.round(rate))) : 100,
   };
 }
 function cleanGuest(g) {
@@ -249,7 +251,7 @@ app.get("/api/state", requireAuth, async (req, res, next) => {
 });
 // Plan writes are patches merged into the stored plan, so two browsers never
 // overwrite each other's changes. Sections merge by key; a null deletes a key.
-const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2, addons: 2 };
+const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2, addons: 2, ranking: 1 };
 function mergePatch(target, patch, depth) {
   const out = isObj(target) ? { ...target } : {};
   for (const [k, v] of Object.entries(patch)) {
