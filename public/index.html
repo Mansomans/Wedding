@@ -127,10 +127,17 @@ td.r,th.r{text-align:right;white-space:nowrap}
 tr.total td{border-bottom:0;border-top:2px solid var(--line-strong);font-weight:700;font-size:16px;padding-top:12px}
 td .sub{display:block;color:var(--muted);font-size:12px}
 .extras{display:grid;gap:6px;margin-top:6px}
-.extra{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.extra{display:grid;grid-template-columns:18px minmax(0,1fr) 96px 40px 24px;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px;position:relative}
 .extra:last-child{border-bottom:0}
-.extra label{flex:1;display:flex;align-items:center;gap:10px;cursor:pointer}
-.extra .cost{color:var(--ink-2)}
+.extra.head{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;padding-bottom:4px}
+.extra.head .r{text-align:right}.extra.head .c{text-align:center}
+.extra.off .xname,.extra.off .xcost{color:var(--muted)}
+.extra input[type=text],.extra input[type=number]{min-width:0;padding:5px 7px;border:1px solid transparent;border-radius:6px;background:transparent;font-size:14px;color:var(--ink)}
+.extra input[type=text]:hover,.extra input[type=number]:hover,.extra input[type=text]:focus,.extra input[type=number]:focus{border-color:var(--line);background:var(--bg)}
+.extra .xcost{text-align:right}
+.extra .xactual{justify-self:center}
+.extra .xcost.est{font-style:italic;color:#8A5A0F}
+.extra .rk.x{padding:1px 5px}
 input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .progress{display:grid;gap:8px;margin-top:6px}
 .prog{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:8px 0;border-bottom:1px solid var(--line)}
@@ -602,7 +609,7 @@ const EXTRAS = [
 
 /* ---------------- state + storage ---------------- */
 const state = {
-  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {}, customOptions: {}, overrides: {}, hidden: {}, addons: {}, ranking: {}, plusOneRate: 100 },
+  plan: { picks: {}, extras: Object.fromEntries(EXTRAS.map(e => [e.id, e.on])), notes: {}, customOptions: {}, overrides: {}, hidden: {}, addons: {}, ranking: {}, extraItems: {}, plusOneRate: 100 },
   guests: [],           // [{id, name, side, group, party, status, events:{}, notes, createdAt}]
   storage: "loading",   // loading | server | offline
   route: "home",
@@ -614,7 +621,7 @@ function defaultExtras() { const o = {}; EXTRAS.forEach(e => o[e.id] = e.on); re
 function normalizePlan(p) {
   p = p || {};
   return { picks: p.picks || {}, extras: p.extras || defaultExtras(), notes: p.notes || {},
-    customOptions: p.customOptions || {}, overrides: p.overrides || {}, hidden: p.hidden || {}, addons: p.addons || {}, ranking: p.ranking || {}, plusOneRate: typeof p.plusOneRate === "number" ? p.plusOneRate : 100 };
+    customOptions: p.customOptions || {}, overrides: p.overrides || {}, hidden: p.hidden || {}, addons: p.addons || {}, ranking: p.ranking || {}, extraItems: p.extraItems || {}, plusOneRate: typeof p.plusOneRate === "number" ? p.plusOneRate : 100 };
 }
 
 /* API. Every call returns the full shared state, which we apply. */
@@ -644,7 +651,7 @@ function applyState(st, { force = false } = {}) {
    shared plan. Sections merge by key (picks, notes, extras, hidden,
    customOptions; overrides one level deeper); a null deletes that key. This
    keeps two browsers from overwriting each other's changes. */
-const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2, addons: 2, ranking: 1 };
+const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2, addons: 2, ranking: 1, extraItems: 2 };
 function mergePatch(target, patch, depth) {
   const out = { ...(target || {}) };
   for (const [k, v] of Object.entries(patch)) {
@@ -755,6 +762,20 @@ function optionCost(d, o, n) {
   return (o.fixed || 0) + (o.perGuest || 0) * n;
 }
 const fmtMoney = n => Pricing.fmt(n);
+/* "Everything else" lines: the built-in EXTRAS, each editable, plus items the couple adds.
+   Edits live in plan.extraItems[id] = { name, cost, actual, vendor, removed }. */
+function extrasList() {
+  const items = state.plan.extraItems || {};
+  const base = EXTRAS.map(e => ({ ...e, actual: false, builtIn: true, ...(items[e.id] || {}) }));
+  const custom = Object.entries(items).filter(([id]) => !EXTRAS.some(e => e.id === id)).map(([id, it]) => ({ id, name: "", cost: 0, on: true, actual: false, ...it }));
+  return base.concat(custom).filter(e => !e.removed);
+}
+const extraOn = e => state.plan.extras[e.id] === undefined ? !!e.on : !!state.plan.extras[e.id];
+function setExtraItem(id, fields) {
+  if (!state.plan.extraItems) state.plan.extraItems = {};
+  state.plan.extraItems[id] = { ...(state.plan.extraItems[id] || {}), ...fields };
+  savePlan({ extraItems: { [id]: fields } });
+}
 function budget() {
   const lines = [];
   let total = 0;
@@ -768,7 +789,7 @@ function budget() {
     lines.push({ d, o, n, cost, pr }); if (cost !== null) total += cost;
   });
   let extras = 0;
-  EXTRAS.forEach(e => { if (state.plan.extras[e.id]) extras += e.cost; });
+  extrasList().forEach(e => { if (extraOn(e)) extras += e.cost; });
   return { lines, extras, total: total + extras };
 }
 function weddingDate() { const o = pickedOption(decision("date")); return o && o.date ? new Date(o.date + "T12:00:00") : null; }
@@ -859,7 +880,7 @@ function renderHome() {
           <td>${esc(l.d.title)}${l.o ? `<span class="sub">${esc(l.o.name)}${l.pr ? ` · <span class="badge st-${l.pr.status}">${Pricing.STATUS_LABEL[l.pr.status]}</span>${l.pr.math ? `<br>${esc(l.pr.math)}` : ""}` : `${(l.o.fixed || 0) ? ` · ${fmt$(l.o.fixed)} fixed` : ""}${l.o.perGuest ? ` + ${fmt$(l.o.perGuest)}/guest` : ""}`}</span>` : `<span class="sub">Not decided</span>`}</td>
           <td class="r num">${l.n}</td>
           <td class="r num">${!l.o ? "—" : l.cost === null ? `<span class="muted">Not priced yet</span>` : `${l.pr ? fmtMoney(l.cost) : fmt$(l.cost)}${l.pr && l.pr.suffix ? ` <span class="muted small">${esc(l.pr.suffix)}</span>` : ""}`}</td></tr>`).join("")}
-        <tr><td>Everything else<span class="sub">${EXTRAS.filter(e => state.plan.extras[e.id]).length} items checked at right</span></td><td class="r"></td><td class="r num">${fmt$(b.extras)}</td></tr>
+        <tr><td>Everything else<span class="sub">${extrasList().filter(extraOn).length} items checked at right${(() => { const est = extrasList().filter(e => extraOn(e) && !e.actual); return est.length ? ` · ${est.length} still ${est.length === 1 ? "an estimate" : "estimates"} (${fmtMoney(est.reduce((s, e) => s + (+e.cost || 0), 0))})` : " · all actual prices"; })()}</span></td><td class="r"></td><td class="r num">${fmtMoney(b.extras)}</td></tr>
         <tr class="total"><td>Estimated total</td><td></td><td class="r num">${fmt$(b.total)}</td></tr>
         </tbody>
       </table>
@@ -880,9 +901,18 @@ function renderHome() {
       <div class="panel">
         <p class="eyebrow">Include in the estimate</p>
         <h3>Everything else</h3>
+        <p class="small muted" style="margin-bottom:8px">Tick a line to count it. Edit the name or price in place. "Actual" means we have picked the vendor and this is the price we are paying; otherwise it is our estimate.</p>
         <div class="extras">
-          ${EXTRAS.map(e => `<div class="extra"><label><input type="checkbox" id="extra-${e.id}" data-extra="${e.id}" ${state.plan.extras[e.id] ? "checked" : ""}> ${esc(e.name)}</label><span class="cost num">${fmt$(e.cost)}</span></div>`).join("")}
+          <div class="extra head"><span></span><span>Item</span><span class="r">Price</span><span class="c" title="Ticked: the price we are paying the vendor we picked. Unticked: our estimate (shown in italics).">Actual</span><span></span></div>
+          ${extrasList().map(e => `<div class="extra ${extraOn(e) ? "" : "off"}">
+            <input type="checkbox" id="extra-${e.id}" data-extra="${e.id}" ${extraOn(e) ? "checked" : ""} aria-label="Include ${esc(e.name)}">
+            <input type="text" class="xname" data-extra-field="name" data-extra-id="${e.id}" value="${esc(e.name)}" placeholder="What is it?" aria-label="Item name">
+            <input type="number" class="xcost num ${e.actual ? "" : "est"}" data-extra-field="cost" data-extra-id="${e.id}" value="${e.cost}" min="0" step="0.01" aria-label="Price" title="${e.actual ? "Actual price" : "Our estimate"}">
+            <input type="checkbox" class="xactual" data-extra-field="actual" data-extra-id="${e.id}" ${e.actual ? "checked" : ""} title="${e.actual ? "Actual price from the chosen vendor" : "Estimate — vendor not chosen yet"}" aria-label="Actual price">
+            <button type="button" class="rk x" data-extra-remove="${e.id}" title="Remove this line">✕</button>
+          </div>`).join("")}
         </div>
+        <div style="margin-top:10px"><button type="button" class="btn ghost small" id="extra-add">+ Add an item</button></div>
       </div>
       <div class="panel">
         <p class="eyebrow">Progress</p>
@@ -1388,6 +1418,22 @@ function bindMain() {
   });
   main.querySelectorAll("[data-clear]").forEach(b => b.addEventListener("click", () => { delete state.plan.picks[b.dataset.clear]; savePlan({ picks: { [b.dataset.clear]: null } }); render(); }));
   main.querySelectorAll("[data-extra]").forEach(c => c.addEventListener("change", () => { state.plan.extras[c.dataset.extra] = c.checked; savePlan({ extras: { [c.dataset.extra]: c.checked } }); render(); }));
+  main.querySelectorAll("[data-extra-field]").forEach(inp => inp.addEventListener("change", () => {
+    const f = inp.dataset.extraField;
+    const val = f === "actual" ? inp.checked : f === "cost" ? Math.max(0, Math.round((Number(inp.value) || 0) * 100) / 100) : inp.value.trim();
+    setExtraItem(inp.dataset.extraId, { [f]: val }); render();
+  }));
+  main.querySelectorAll("[data-extra-remove]").forEach(b => b.addEventListener("click", () => {
+    const e = extrasList().find(x => x.id === b.dataset.extraRemove);
+    if (!confirm(`Remove "${e ? e.name || "this item" : "this item"}" from Everything else?`)) return;
+    setExtraItem(b.dataset.extraRemove, { removed: true }); render();
+  }));
+  const xa = $("#extra-add"); if (xa) xa.addEventListener("click", () => {
+    const id = "x-" + uid();
+    setExtraItem(id, { name: "", cost: 0, actual: false });
+    state.plan.extras[id] = true; savePlan({ extras: { [id]: true } });
+    render(); const el = document.querySelector(`[data-extra-id="${id}"][data-extra-field="name"]`); if (el) el.focus();
+  });
   main.querySelectorAll("[data-note]").forEach(t => {
     let timer; t.addEventListener("input", () => { state.plan.notes[t.dataset.note] = t.value; clearTimeout(timer); timer = setTimeout(() => savePlan({ notes: { [t.dataset.note]: t.value } }), 500); });
   });

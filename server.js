@@ -205,10 +205,21 @@ function cleanPlan(p) {
   }
   const ranking = {};
   if (isObj(p.ranking)) for (const [did, ids] of Object.entries(p.ranking)) if (/^[\w-]{1,40}$/.test(did) && Array.isArray(ids)) ranking[did] = [...new Set(ids.filter(id => typeof id === "string" && /^[\w.-]{1,60}$/.test(id)))].slice(0, 200);
+  const extraItems = {};
+  if (isObj(p.extraItems)) for (const [id, it] of Object.entries(p.extraItems).slice(0, 200)) {
+    if (!/^[\w-]{1,60}$/.test(id) || !isObj(it)) continue;
+    const out = {};
+    if (typeof it.name === "string") out.name = it.name.trim().slice(0, 120);
+    if (it.cost !== undefined && Number.isFinite(Number(it.cost))) out.cost = Math.max(0, Math.round(Number(it.cost) * 100) / 100);
+    if ("actual" in it) out.actual = !!it.actual;
+    if ("removed" in it) out.removed = !!it.removed;
+    if (typeof it.vendor === "string") out.vendor = it.vendor.trim().slice(0, 120);
+    extraItems[id] = out;
+  }
   const rate = Number(p.plusOneRate);
   return {
     picks: isObj(p.picks) ? p.picks : {}, extras: isObj(p.extras) ? p.extras : {}, notes: isObj(p.notes) ? p.notes : {},
-    customOptions, overrides, hidden, addons, ranking, plusOneRate: Number.isFinite(rate) ? Math.min(100, Math.max(0, Math.round(rate))) : 100,
+    customOptions, overrides, hidden, addons, ranking, extraItems, plusOneRate: Number.isFinite(rate) ? Math.min(100, Math.max(0, Math.round(rate))) : 100,
   };
 }
 function cleanGuest(g) {
@@ -251,7 +262,7 @@ app.get("/api/state", requireAuth, async (req, res, next) => {
 });
 // Plan writes are patches merged into the stored plan, so two browsers never
 // overwrite each other's changes. Sections merge by key; a null deletes a key.
-const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2, addons: 2, ranking: 1 };
+const PATCH_DEPTH = { picks: 1, notes: 1, extras: 1, hidden: 2, customOptions: 1, overrides: 2, addons: 2, ranking: 1, extraItems: 2 };
 function mergePatch(target, patch, depth) {
   const out = isObj(target) ? { ...target } : {};
   for (const [k, v] of Object.entries(patch)) {
