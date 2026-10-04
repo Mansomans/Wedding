@@ -1186,6 +1186,25 @@ function loadXlsx() {
   });
   return xlsxLoading;
 }
+/* Split a household entry into individual people.
+   "Enrique & Alejandra Segura" -> Enrique Segura, Alejandra Segura
+   "The Nguyen family" with a head count of 4 -> The Nguyen family (guest 1..4)
+   A plus-one becomes its own row: "Conor Egan's +1". */
+function splitPeople(g) {
+  const party = Math.max(1, Number(g.party) || 1);
+  const raw = String(g.name || "").trim();
+  let parts = raw.split(/\s*(?:&|\+|\/|,|\band\b)\s*/i).map(x => x.trim()).filter(Boolean);
+  if (parts.length < 2) parts = [raw];
+  // Single first names borrow the surname of the nearest full name ("Enrique" -> "Enrique Segura").
+  const lastFull = parts.slice().reverse().find(x => x.split(/\s+/).length >= 2 && !/^the\b/i.test(x));
+  const surname = lastFull ? lastFull.split(/\s+/).slice(-1)[0] : null;
+  const names = parts.map(x => (x.split(/\s+/).length === 1 && surname && parts.length > 1) ? `${x} ${surname}` : x);
+  const people = names.map(n => ({ person: (names.length === 1 && party > 1) ? `${n} (guest 1 of ${party})` : n, type: names.length > party ? `Named guest (check head count: ${party})` : "Named guest" }));
+  const base = names.length === 1 ? names[0] : raw;
+  for (let k = people.length + 1; k <= party; k++) people.push({ person: `${base} (guest ${k}${names.length === 1 ? ` of ${party}` : ""})`, type: "Unnamed guest" });
+  if (g.plusOne) people.push({ person: `${names[0]}'s +1`, type: "Plus-one" });
+  return people;
+}
 async function exportGuests() {
   const btn = $("#g-export"); if (btn) { btn.disabled = true; btn.textContent = "Preparing…"; }
   try {
@@ -1202,13 +1221,26 @@ async function exportGuests() {
     const ws = XLSX.utils.json_to_sheet(rows, { header });
     ws["!cols"] = header.map(h => ({ wch: h === "Name" ? 32 : h === "Notes" ? 40 : h === "Side" || h === "Group" ? 18 : 14 }));
     ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: header.length - 1, r: Math.max(rows.length, 1) } }) };
+    // One row per person
+    const personRows = [];
+    list.forEach(g => splitPeople(g).forEach(p => {
+      const row = { "Person": p.person, "Type": p.type, "Household entry": g.name, "Side": g.side || "", "Group": g.group || "", "Status": STATUS_TEXT[g.status] || g.status };
+      EVENTS.forEach(e => { row[e.label] = yn(g.events && g.events[e.key]); });
+      row["Notes"] = g.notes || "";
+      personRows.push(row);
+    }));
+    const pHeader = ["Person", "Type", "Household entry", "Side", "Group", "Status", ...EVENTS.map(e => e.label), "Notes"];
+    const wsP = XLSX.utils.json_to_sheet(personRows, { header: pHeader });
+    wsP["!cols"] = pHeader.map(h => ({ wch: h === "Person" || h === "Household entry" ? 32 : h === "Notes" ? 40 : h === "Side" || h === "Group" ? 18 : 14 }));
+    wsP["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: pHeader.length - 1, r: Math.max(personRows.length, 1) } }) };
     const inviting = list.filter(g => g.status === "invited");
     const summary = [
       ["Guest list export", ""],
       ["Exported", new Date().toLocaleString("en-US")],
       ["Filters", parts.length ? parts.join(" · ") : "None (all guests)"],
       ["", ""],
-      ["Entries", list.length],
+      ["Entries (households)", list.length],
+      ["People (one row each)", personRows.length],
       ["Heads listed", headcount(list, 100)],
       ["Inviting incl. plus-ones", headcount(inviting, 100)],
       ["Plus-ones offered", plusOnesOffered(list)],
@@ -1218,10 +1250,11 @@ async function exportGuests() {
     ];
     const ws2 = XLSX.utils.aoa_to_sheet(summary); ws2["!cols"] = [{ wch: 34 }, { wch: 40 }];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Guests");
+    XLSX.utils.book_append_sheet(wb, wsP, "Per person");
+    XLSX.utils.book_append_sheet(wb, ws, "Households");
     XLSX.utils.book_append_sheet(wb, ws2, "Summary");
     XLSX.writeFile(wb, exportFileName());
-    toast(`Exported ${list.length} ${list.length === 1 ? "guest" : "guests"}`);
+    toast(`Exported ${personRows.length} people from ${list.length} ${list.length === 1 ? "entry" : "entries"}`);
   } catch (e) { toast(e.message || "Export failed"); }
   finally { if (btn) { btn.disabled = false; btn.textContent = "Export .xlsx"; } }
 }
