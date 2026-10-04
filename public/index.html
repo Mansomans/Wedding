@@ -1211,27 +1211,29 @@ async function exportGuests() {
     const XLSX = await loadXlsx();
     const { list, parts } = filteredGuests();
     const yn = v => v ? "Yes" : "No";
+    let runningSeats = 0;
     const rows = list.map(g => {
-      const row = { "Name": g.name, "Side": g.side || "", "Group": g.group || "", "Head count": Number(g.party) || 1, "Plus-one offered": yn(g.plusOne), "Seats incl. plus-one": (Number(g.party) || 1) + (g.plusOne ? 1 : 0), "Status": STATUS_TEXT[g.status] || g.status };
+      runningSeats += (Number(g.party) || 1) + (g.plusOne ? 1 : 0);
+      const row = { "Name": g.name, "Side": g.side || "", "Group": g.group || "", "Head count": Number(g.party) || 1, "Plus-one offered": yn(g.plusOne), "Seats incl. plus-one": (Number(g.party) || 1) + (g.plusOne ? 1 : 0), "Running seat count": runningSeats, "Status": STATUS_TEXT[g.status] || g.status };
       EVENTS.forEach(e => { row[e.label] = yn(g.events && g.events[e.key]); });
       row["Notes"] = g.notes || "";
       return row;
     });
-    const header = ["Name", "Side", "Group", "Head count", "Plus-one offered", "Seats incl. plus-one", "Status", ...EVENTS.map(e => e.label), "Notes"];
+    const header = ["Name", "Side", "Group", "Head count", "Plus-one offered", "Seats incl. plus-one", "Running seat count", "Status", ...EVENTS.map(e => e.label), "Notes"];
     const ws = XLSX.utils.json_to_sheet(rows, { header });
     ws["!cols"] = header.map(h => ({ wch: h === "Name" ? 32 : h === "Notes" ? 40 : h === "Side" || h === "Group" ? 18 : 14 }));
     ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: header.length - 1, r: Math.max(rows.length, 1) } }) };
     // One row per person
     const personRows = [];
     list.forEach(g => splitPeople(g).forEach(p => {
-      const row = { "Person": p.person, "Type": p.type, "Household entry": g.name, "Side": g.side || "", "Group": g.group || "", "Status": STATUS_TEXT[g.status] || g.status };
+      const row = { "#": personRows.length + 1, "Person": p.person, "Type": p.type, "Household entry": g.name, "Side": g.side || "", "Group": g.group || "", "Status": STATUS_TEXT[g.status] || g.status };
       EVENTS.forEach(e => { row[e.label] = yn(g.events && g.events[e.key]); });
       row["Notes"] = g.notes || "";
       personRows.push(row);
     }));
-    const pHeader = ["Person", "Type", "Household entry", "Side", "Group", "Status", ...EVENTS.map(e => e.label), "Notes"];
+    const pHeader = ["#", "Person", "Type", "Household entry", "Side", "Group", "Status", ...EVENTS.map(e => e.label), "Notes"];
     const wsP = XLSX.utils.json_to_sheet(personRows, { header: pHeader });
-    wsP["!cols"] = pHeader.map(h => ({ wch: h === "Person" || h === "Household entry" ? 32 : h === "Notes" ? 40 : h === "Side" || h === "Group" ? 18 : 14 }));
+    wsP["!cols"] = pHeader.map(h => ({ wch: h === "#" ? 6 : h === "Person" || h === "Household entry" ? 32 : h === "Notes" ? 40 : h === "Side" || h === "Group" ? 18 : 14 }));
     wsP["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: pHeader.length - 1, r: Math.max(personRows.length, 1) } }) };
     const inviting = list.filter(g => g.status === "invited");
     const summary = [
