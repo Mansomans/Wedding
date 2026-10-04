@@ -1151,7 +1151,9 @@ function renderVenueTable(d, n) {
     <p class="small muted" style="margin:8px 0 18px">Use "+ rank" to add a venue to our ranking and the arrows to reorder; the ranking is shared and saved. Click any other column to sort by it${ranking.length ? ", or click Our rank to return to the ranking" : ""}. Unranked venues sort by availability, then total. Click a row to pick it, or use Cards to edit.</p>`;
 }
 
-function renderGuests() {
+/* The guest list as currently filtered, shared by the table and the export. */
+const STATUS_TEXT = { invited: "Inviting", maybe: "Maybe", no: "Not inviting" };
+function filteredGuests() {
   const f = state.filter;
   const q = f.q.trim().toLowerCase();
   let list = state.guests.slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -1159,8 +1161,75 @@ function renderGuests() {
   if (f.status !== "all") list = list.filter(g => g.status === f.status);
   if (f.side !== "all") list = list.filter(g => g.side === f.side);
   if (f.group !== "all") list = list.filter(g => g.group === f.group);
+  const parts = []; // human-readable description of the active filters
+  if (f.status !== "all") parts.push(STATUS_TEXT[f.status]);
+  if (f.side !== "all") parts.push(f.side);
+  if (f.group !== "all") parts.push(f.group);
+  if (q) parts.push(`search "${f.q.trim()}"`);
+  return { list, q, filtering: parts.length > 0, parts };
+}
+const slug = t => String(t).toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+function exportFileName() {
+  const { parts } = filteredGuests();
+  const today = new Date().toISOString().slice(0, 10);
+  const bits = parts.length ? parts.map(p => slug(p.replace(/^search /, "search-"))) : ["all"];
+  return `guests_${bits.join("_")}_${today}.xlsx`;
+}
+let xlsxLoading = null;
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (!xlsxLoading) xlsxLoading = new Promise((resolve, reject) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    sc.onload = () => resolve(window.XLSX); sc.onerror = () => { xlsxLoading = null; reject(new Error("Could not load the spreadsheet library")); };
+    document.head.appendChild(sc);
+  });
+  return xlsxLoading;
+}
+async function exportGuests() {
+  const btn = $("#g-export"); if (btn) { btn.disabled = true; btn.textContent = "Preparing…"; }
+  try {
+    const XLSX = await loadXlsx();
+    const { list, parts } = filteredGuests();
+    const yn = v => v ? "Yes" : "No";
+    const rows = list.map(g => {
+      const row = { "Name": g.name, "Side": g.side || "", "Group": g.group || "", "Head count": Number(g.party) || 1, "Plus-one offered": yn(g.plusOne), "Seats incl. plus-one": (Number(g.party) || 1) + (g.plusOne ? 1 : 0), "Status": STATUS_TEXT[g.status] || g.status };
+      EVENTS.forEach(e => { row[e.label] = yn(g.events && g.events[e.key]); });
+      row["Notes"] = g.notes || "";
+      return row;
+    });
+    const header = ["Name", "Side", "Group", "Head count", "Plus-one offered", "Seats incl. plus-one", "Status", ...EVENTS.map(e => e.label), "Notes"];
+    const ws = XLSX.utils.json_to_sheet(rows, { header });
+    ws["!cols"] = header.map(h => ({ wch: h === "Name" ? 32 : h === "Notes" ? 40 : h === "Side" || h === "Group" ? 18 : 14 }));
+    ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: header.length - 1, r: Math.max(rows.length, 1) } }) };
+    const inviting = list.filter(g => g.status === "invited");
+    const summary = [
+      ["Guest list export", ""],
+      ["Exported", new Date().toLocaleString("en-US")],
+      ["Filters", parts.length ? parts.join(" · ") : "None (all guests)"],
+      ["", ""],
+      ["Entries", list.length],
+      ["Heads listed", headcount(list, 100)],
+      ["Inviting incl. plus-ones", headcount(inviting, 100)],
+      ["Plus-ones offered", plusOnesOffered(list)],
+      ...EVENTS.map(e => [`${e.label} (inviting)`, headcount(inviting.filter(g => g.events && g.events[e.key]), 100)]),
+      ["", ""],
+      ["Plus-one scenario on the home page", `${plusOneRate()}% expected to attend`],
+    ];
+    const ws2 = XLSX.utils.aoa_to_sheet(summary); ws2["!cols"] = [{ wch: 34 }, { wch: 40 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Guests");
+    XLSX.utils.book_append_sheet(wb, ws2, "Summary");
+    XLSX.writeFile(wb, exportFileName());
+    toast(`Exported ${list.length} ${list.length === 1 ? "guest" : "guests"}`);
+  } catch (e) { toast(e.message || "Export failed"); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = "Export .xlsx"; } }
+}
+
+function renderGuests() {
+  const f = state.filter;
+  const { list, q, filtering } = filteredGuests();
   const inv = invitedGuests();
-  const filtering = q || f.status !== "all" || f.side !== "all" || f.group !== "all";
   const shownInvited = list.filter(g => g.status === "invited");
   return `
   <div class="ghead">
@@ -1177,6 +1246,7 @@ function renderGuests() {
     <select id="g-filter-status" aria-label="Filter by status"><option value="all" ${f.status === "all" ? "selected" : ""}>All statuses</option><option value="invited" ${f.status === "invited" ? "selected" : ""}>Inviting</option><option value="maybe" ${f.status === "maybe" ? "selected" : ""}>Maybe</option><option value="no" ${f.status === "no" ? "selected" : ""}>Not inviting</option></select>
     <select id="g-filter-side" aria-label="Filter by side"><option value="all">All sides</option>${CONFIG.sides.map(s => `<option value="${esc(s)}" ${f.side === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
     <select id="g-filter-group" aria-label="Filter by group"><option value="all">All groups</option>${CONFIG.groups.map(s => `<option value="${esc(s)}" ${f.group === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
+    <button class="btn ghost" id="g-export" title="Download the guests shown below as an Excel file">Export .xlsx</button>
     <button class="btn" id="g-add">Add guest</button>
   </div>
   <div class="ftotals">
@@ -1185,6 +1255,7 @@ function renderGuests() {
     <span><b class="num">${headcount(shownInvited, 100)}</b> inviting incl. plus-ones${filtering ? " in this filter" : ""}</span>
     <span><b class="num">${plusOnesOffered(list)}</b> plus-ones</span>
     ${filtering ? `<button class="linkish" id="g-clear-filters">Clear filters</button>` : ""}
+    <span class="muted small" style="margin-left:auto">Export file: <code>${esc(exportFileName())}</code></span>
   </div>
   <div class="gtable-wrap">
     ${list.length ? `<table class="gtable">
@@ -1291,6 +1362,7 @@ function bindMain() {
   const fg = $("#g-filter-group"); if (fg) fg.addEventListener("change", () => { state.filter.group = fg.value; render(); });
   const fc = $("#g-clear-filters"); if (fc) fc.addEventListener("click", () => { state.filter = { q: "", status: "all", side: "all", group: "all" }; render(); });
   const add = $("#g-add"); if (add) add.addEventListener("click", () => openGuest(null));
+  const ex = $("#g-export"); if (ex) ex.addEventListener("click", exportGuests);
   main.querySelectorAll("[data-guest]").forEach(r => {
     const open = () => openGuest(byId(state.guests, r.dataset.guest));
     r.addEventListener("click", open); r.addEventListener("keydown", e => { if (e.key === "Enter") open(); });
