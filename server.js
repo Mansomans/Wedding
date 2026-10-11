@@ -232,7 +232,7 @@ function cleanGuest(g) {
     party: Math.min(20, Math.max(1, Math.round(Number(g.party) || 1))),
     plusOne: !!g.plusOne,
     checks: isObj(g.checks) ? Object.fromEntries(Object.entries(g.checks).slice(0, 40).map(([k, v]) => [String(k).slice(0, 30), !!v])) : {},
-    status: ["invited", "maybe", "no"].includes(g.status) ? g.status : "invited",
+    status: ["invited", "maybe", "no", "declined"].includes(g.status) ? g.status : "invited",
     events: isObj(g.events) ? Object.fromEntries(Object.entries(g.events).map(([k, v]) => [String(k).slice(0, 30), !!v])) : {},
     notes: String(g.notes || "").slice(0, 500),
     createdAt: Number(g.createdAt) || Date.now(),

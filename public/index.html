@@ -195,6 +195,7 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .status.invited{background:var(--accent-soft);color:var(--accent)}
 .status.maybe{background:var(--gold-soft);color:var(--gold)}
 .status.no{background:var(--blush-soft);color:var(--bad)}
+.status.declined{background:var(--surface-2);color:var(--muted);text-decoration:line-through}
 .evdots{display:flex;gap:5px}
 .ck{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:10px;font-weight:700;border:1px solid var(--line);color:var(--muted);background:var(--surface);cursor:pointer;padding:0}
 .ck:hover{border-color:var(--accent);color:var(--accent)}
@@ -380,6 +381,7 @@ dialog::backdrop{background:rgba(20,26,23,.45)}
         <option value="invited">Inviting</option>
         <option value="maybe">Maybe / B-list</option>
         <option value="no">Not inviting</option>
+        <option value="declined">Declined (RSVP'd no)</option>
       </select></div>
     <div class="field"><span>Which parts of the weekend?</span>
       <div class="checks" id="g-events"></div></div>
@@ -1205,7 +1207,7 @@ function renderVenueTable(d, n) {
 }
 
 /* The guest list as currently filtered, shared by the table and the export. */
-const STATUS_TEXT = { invited: "Inviting", maybe: "Maybe", no: "Not inviting" };
+const STATUS_TEXT = { invited: "Inviting", maybe: "Maybe", no: "Not inviting", declined: "Declined" };
 function filteredGuests() {
   const f = state.filter;
   const q = f.q.trim().toLowerCase();
@@ -1303,6 +1305,7 @@ async function exportGuests() {
       ["Heads listed", headcount(list, 100)],
       ["Inviting incl. plus-ones", headcount(inviting, 100)],
       ["Plus-ones offered", plusOnesOffered(list)],
+      ["Declined (RSVP'd no)", list.filter(g => g.status === "declined").length],
       ...EVENTS.map(e => [`${e.label} (inviting)`, headcount(inviting.filter(g => g.events && g.events[e.key]), 100)]),
       ["", ""],
       ...CHECKLIST.map(c => [`${c.label} (entries done / inviting)`, `${inviting.filter(g => g.checks && g.checks[c.key]).length} / ${inviting.length}`]),
@@ -1331,6 +1334,7 @@ function renderGuests() {
     <div class="gstats">
       <span><b class="num">${headcount(inv)}</b>inviting</span>
       <span><b class="num">${headcount(state.guests.filter(g => g.status === "maybe"))}</b>maybe</span>
+      <span><b class="num">${headcount(state.guests.filter(g => g.status === "declined"), 100)}</b>declined</span>
       <span><b class="num">${plusOnesOffered(inv)}</b>plus-ones offered</span>
       ${EVENTS.map(e => `<span><b class="num">${headcount(attendees(e.key))}</b>${esc(e.label.toLowerCase())}</span>`).join("")}
     </div>
@@ -1340,7 +1344,7 @@ function renderGuests() {
   </div>
   <div class="gtools">
     <input type="search" id="g-search" placeholder="Search names, groups, notes" value="${esc(f.q)}" aria-label="Search guests">
-    <select id="g-filter-status" aria-label="Filter by status"><option value="all" ${f.status === "all" ? "selected" : ""}>All statuses</option><option value="invited" ${f.status === "invited" ? "selected" : ""}>Inviting</option><option value="maybe" ${f.status === "maybe" ? "selected" : ""}>Maybe</option><option value="no" ${f.status === "no" ? "selected" : ""}>Not inviting</option></select>
+    <select id="g-filter-status" aria-label="Filter by status"><option value="all" ${f.status === "all" ? "selected" : ""}>All statuses</option><option value="invited" ${f.status === "invited" ? "selected" : ""}>Inviting</option><option value="maybe" ${f.status === "maybe" ? "selected" : ""}>Maybe</option><option value="no" ${f.status === "no" ? "selected" : ""}>Not inviting</option><option value="declined" ${f.status === "declined" ? "selected" : ""}>Declined (RSVP'd no)</option></select>
     <select id="g-filter-side" aria-label="Filter by side"><option value="all">All sides</option>${CONFIG.sides.map(s => `<option value="${esc(s)}" ${f.side === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
     <select id="g-filter-group" aria-label="Filter by group"><option value="all">All groups</option>${CONFIG.groups.map(s => `<option value="${esc(s)}" ${f.group === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
     <select id="g-filter-check" aria-label="Filter by checklist"><option value="all">Checklist: any</option>${CHECKLIST.map(c => `<optgroup label="${esc(c.label)}"><option value="${c.key}:todo" ${f.check === c.key + ":todo" ? "selected" : ""}>${esc(c.label)}: still to do</option><option value="${c.key}:done" ${f.check === c.key + ":done" ? "selected" : ""}>${esc(c.label)}: done</option></optgroup>`).join("")}</select>
@@ -1362,7 +1366,7 @@ function renderGuests() {
         <td class="name">${esc(g.name)}${g.notes ? `<span class="sub small muted" style="display:block;font-weight:400">${esc(g.notes)}</span>` : ""}</td>
         <td>${esc(g.side || "")}</td><td>${esc(g.group || "")}</td><td class="r num">${Number(g.party) || 1}${g.plusOne ? " <span class=\"muted\">+1</span>" : ""}</td>
         <td><input type="checkbox" class="po" data-plusone="${g.id}" ${g.plusOne ? "checked" : ""} aria-label="Plus-one for ${esc(g.name)}"></td>
-        <td><span class="status ${esc(g.status)}">${g.status === "invited" ? "Inviting" : g.status === "maybe" ? "Maybe" : "Not inviting"}</span></td>
+        <td><span class="status ${esc(g.status)}">${STATUS_TEXT[g.status] || g.status}</span></td>
         <td><div class="evdots">${EVENTS.map(e => `<span class="${g.events && g.events[e.key] ? "on" : ""}" title="${esc(e.label)}">${e.short}</span>`).join("")}</div></td>
         <td><div class="evdots checks-dots">${CHECKLIST.map(c => `<button type="button" class="ck ${g.checks && g.checks[c.key] ? "on" : ""}" data-check="${c.key}" data-guest-id="${g.id}" title="${esc(c.label)}${g.checks && g.checks[c.key] ? " ✓" : ""}" aria-pressed="${!!(g.checks && g.checks[c.key])}">${g.checks && g.checks[c.key] ? "✓" : c.short}</button>`).join("")}</div></td>
       </tr>`).join("")}</tbody></table>`
@@ -1377,7 +1381,7 @@ function renderGuests() {
       <div class="row">
         <select id="bulk-side">${CONFIG.sides.map(s => `<option>${esc(s)}</option>`).join("")}</select>
         <select id="bulk-group">${CONFIG.groups.map(s => `<option>${esc(s)}</option>`).join("")}</select>
-        <select id="bulk-status"><option value="invited">Inviting</option><option value="maybe">Maybe</option></select>
+        <select id="bulk-status"><option value="invited">Inviting</option><option value="maybe">Maybe</option><option value="no">Not inviting</option><option value="declined">Declined (RSVP'd no)</option></select>
         <button class="btn ghost" id="bulk-add">Add these guests</button>
       </div>
     </div>
