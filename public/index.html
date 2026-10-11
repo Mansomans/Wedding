@@ -196,6 +196,17 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
 .status.maybe{background:var(--gold-soft);color:var(--gold)}
 .status.no{background:var(--blush-soft);color:var(--bad)}
 .evdots{display:flex;gap:5px}
+.ck{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:10px;font-weight:700;border:1px solid var(--line);color:var(--muted);background:var(--surface);cursor:pointer;padding:0}
+.ck:hover{border-color:var(--accent);color:var(--accent)}
+.ck.on{background:#E4F0DC;border-color:#E4F0DC;color:#3E6B2A}
+.checkprog{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-bottom:14px}
+.cp{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);font-size:12px;color:var(--ink-2);cursor:pointer}
+.cp:hover{border-color:var(--accent)}
+.cp.all{border-color:#E4F0DC;background:#F4F9F0}
+.cp-label b{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;background:var(--surface-2);color:var(--ink);margin-right:4px;font-size:10px}
+.cp-num{color:var(--ink);font-weight:600}
+.cp-bar{grid-column:1 / -1;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden}
+.cp-bar span{display:block;height:100%;background:var(--accent)}
 .evdots span{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:10px;font-weight:700;border:1px solid var(--line);color:var(--muted)}
 .evdots span.on{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent)}
 .empty{padding:36px 16px;text-align:center;color:var(--muted)}
@@ -372,6 +383,8 @@ dialog::backdrop{background:rgba(20,26,23,.45)}
       </select></div>
     <div class="field"><span>Which parts of the weekend?</span>
       <div class="checks" id="g-events"></div></div>
+    <div class="field"><span>Checklist</span>
+      <div class="checks" id="g-checks"></div></div>
     <div class="field"><span>Notes</span><input id="g-notes" placeholder="Dietary, travel, plus-one details…"></div>
     <div class="dlg-actions">
       <button type="button" class="btn danger small" id="g-delete" hidden>Remove guest</button>
@@ -451,6 +464,16 @@ const EVENTS = [
   { key: "welcome",   label: "Welcome party",    short: "W", default: true  },
   { key: "mass",      label: "Mass",             short: "M", default: true  },
   { key: "reception", label: "Reception",        short: "P", default: true  },
+];
+
+// Per-guest to-do checklist. Add an item here and it appears on every guest.
+// `short` is the letter shown in the guest table.
+const CHECKLIST = [
+  { key: "addressLink", label: "Address link sent",   short: "L", help: "We sent them the link to enter their mailing address" },
+  { key: "address",     label: "Address received",    short: "A", help: "Their mailing address is in hand" },
+  { key: "saveDate",    label: "Save the date sent",  short: "S" },
+  { key: "invite",      label: "Invitation sent",     short: "I" },
+  { key: "rsvp",        label: "RSVP received",       short: "R" },
 ];
 
 const DECISIONS = [
@@ -613,7 +636,7 @@ const state = {
   guests: [],           // [{id, name, side, group, party, status, events:{}, notes, createdAt}]
   storage: "loading",   // loading | server | offline
   route: "home",
-  filter: { q: "", status: "all", side: "all", group: "all" },
+  filter: { q: "", status: "all", side: "all", group: "all", check: "all" },
 };
 const uid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
 
@@ -1191,10 +1214,12 @@ function filteredGuests() {
   if (f.status !== "all") list = list.filter(g => g.status === f.status);
   if (f.side !== "all") list = list.filter(g => g.side === f.side);
   if (f.group !== "all") list = list.filter(g => g.group === f.group);
+  if (f.check && f.check !== "all") { const [key, want] = f.check.split(":"); list = list.filter(g => !!(g.checks && g.checks[key]) === (want === "done")); }
   const parts = []; // human-readable description of the active filters
   if (f.status !== "all") parts.push(STATUS_TEXT[f.status]);
   if (f.side !== "all") parts.push(f.side);
   if (f.group !== "all") parts.push(f.group);
+  if (f.check && f.check !== "all") { const [key, want] = f.check.split(":"); const item = CHECKLIST.find(c => c.key === key); if (item) parts.push(`${item.label}: ${want === "done" ? "done" : "to do"}`); }
   if (q) parts.push(`search "${f.q.trim()}"`);
   return { list, q, filtering: parts.length > 0, parts };
 }
@@ -1246,10 +1271,11 @@ async function exportGuests() {
       runningSeats += (Number(g.party) || 1) + (g.plusOne ? 1 : 0);
       const row = { "Name": g.name, "Side": g.side || "", "Group": g.group || "", "Head count": Number(g.party) || 1, "Plus-one offered": yn(g.plusOne), "Seats incl. plus-one": (Number(g.party) || 1) + (g.plusOne ? 1 : 0), "Running seat count": runningSeats, "Status": STATUS_TEXT[g.status] || g.status };
       EVENTS.forEach(e => { row[e.label] = yn(g.events && g.events[e.key]); });
+      CHECKLIST.forEach(c => { row[c.label] = yn(g.checks && g.checks[c.key]); });
       row["Notes"] = g.notes || "";
       return row;
     });
-    const header = ["Name", "Side", "Group", "Head count", "Plus-one offered", "Seats incl. plus-one", "Running seat count", "Status", ...EVENTS.map(e => e.label), "Notes"];
+    const header = ["Name", "Side", "Group", "Head count", "Plus-one offered", "Seats incl. plus-one", "Running seat count", "Status", ...EVENTS.map(e => e.label), ...CHECKLIST.map(c => c.label), "Notes"];
     const ws = XLSX.utils.json_to_sheet(rows, { header });
     ws["!cols"] = header.map(h => ({ wch: h === "Name" ? 32 : h === "Notes" ? 40 : h === "Side" || h === "Group" ? 18 : 14 }));
     ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: header.length - 1, r: Math.max(rows.length, 1) } }) };
@@ -1258,10 +1284,11 @@ async function exportGuests() {
     list.forEach(g => splitPeople(g).forEach(p => {
       const row = { "#": personRows.length + 1, "Person": p.person, "Type": p.type, "Household entry": g.name, "Side": g.side || "", "Group": g.group || "", "Status": STATUS_TEXT[g.status] || g.status };
       EVENTS.forEach(e => { row[e.label] = yn(g.events && g.events[e.key]); });
+      CHECKLIST.forEach(c => { row[c.label] = yn(g.checks && g.checks[c.key]); });
       row["Notes"] = g.notes || "";
       personRows.push(row);
     }));
-    const pHeader = ["#", "Person", "Type", "Household entry", "Side", "Group", "Status", ...EVENTS.map(e => e.label), "Notes"];
+    const pHeader = ["#", "Person", "Type", "Household entry", "Side", "Group", "Status", ...EVENTS.map(e => e.label), ...CHECKLIST.map(c => c.label), "Notes"];
     const wsP = XLSX.utils.json_to_sheet(personRows, { header: pHeader });
     wsP["!cols"] = pHeader.map(h => ({ wch: h === "#" ? 6 : h === "Person" || h === "Household entry" ? 32 : h === "Notes" ? 40 : h === "Side" || h === "Group" ? 18 : 14 }));
     wsP["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: pHeader.length - 1, r: Math.max(personRows.length, 1) } }) };
@@ -1277,6 +1304,8 @@ async function exportGuests() {
       ["Inviting incl. plus-ones", headcount(inviting, 100)],
       ["Plus-ones offered", plusOnesOffered(list)],
       ...EVENTS.map(e => [`${e.label} (inviting)`, headcount(inviting.filter(g => g.events && g.events[e.key]), 100)]),
+      ["", ""],
+      ...CHECKLIST.map(c => [`${c.label} (entries done / inviting)`, `${inviting.filter(g => g.checks && g.checks[c.key]).length} / ${inviting.length}`]),
       ["", ""],
       ["Plus-one scenario on the home page", `${plusOneRate()}% expected to attend`],
     ];
@@ -1306,11 +1335,15 @@ function renderGuests() {
       ${EVENTS.map(e => `<span><b class="num">${headcount(attendees(e.key))}</b>${esc(e.label.toLowerCase())}</span>`).join("")}
     </div>
   </div>
+  <div class="checkprog">
+    ${CHECKLIST.map(c => { const done = inv.filter(g => g.checks && g.checks[c.key]).length; const pct = inv.length ? Math.round(done / inv.length * 100) : 0; return `<button type="button" class="cp ${done === inv.length && inv.length ? "all" : ""}" data-check-filter="${c.key}:todo" title="Show inviting guests still to do: ${esc(c.label)}"><span class="cp-label"><b>${c.short}</b> ${esc(c.label)}</span><span class="cp-bar"><span style="width:${pct}%"></span></span><span class="cp-num num">${done} / ${inv.length}</span></button>`; }).join("")}
+  </div>
   <div class="gtools">
     <input type="search" id="g-search" placeholder="Search names, groups, notes" value="${esc(f.q)}" aria-label="Search guests">
     <select id="g-filter-status" aria-label="Filter by status"><option value="all" ${f.status === "all" ? "selected" : ""}>All statuses</option><option value="invited" ${f.status === "invited" ? "selected" : ""}>Inviting</option><option value="maybe" ${f.status === "maybe" ? "selected" : ""}>Maybe</option><option value="no" ${f.status === "no" ? "selected" : ""}>Not inviting</option></select>
     <select id="g-filter-side" aria-label="Filter by side"><option value="all">All sides</option>${CONFIG.sides.map(s => `<option value="${esc(s)}" ${f.side === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
     <select id="g-filter-group" aria-label="Filter by group"><option value="all">All groups</option>${CONFIG.groups.map(s => `<option value="${esc(s)}" ${f.group === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
+    <select id="g-filter-check" aria-label="Filter by checklist"><option value="all">Checklist: any</option>${CHECKLIST.map(c => `<optgroup label="${esc(c.label)}"><option value="${c.key}:todo" ${f.check === c.key + ":todo" ? "selected" : ""}>${esc(c.label)}: still to do</option><option value="${c.key}:done" ${f.check === c.key + ":done" ? "selected" : ""}>${esc(c.label)}: done</option></optgroup>`).join("")}</select>
     <button class="btn ghost" id="g-export" title="Download the guests shown below as an Excel file">Export .xlsx</button>
     <button class="btn" id="g-add">Add guest</button>
   </div>
@@ -1324,13 +1357,14 @@ function renderGuests() {
   </div>
   <div class="gtable-wrap">
     ${list.length ? `<table class="gtable">
-      <thead><tr><th>Name</th><th>Side</th><th>Group</th><th class="r">Heads</th><th title="Offer a plus-one">+1</th><th>Status</th><th>Events</th></tr></thead>
+      <thead><tr><th>Name</th><th>Side</th><th>Group</th><th class="r">Heads</th><th title="Offer a plus-one">+1</th><th>Status</th><th>Events</th><th title="${esc(CHECKLIST.map(c => c.short + " = " + c.label).join(", "))}">Checklist</th></tr></thead>
       <tbody>${list.map(g => `<tr data-guest="${g.id}" tabindex="0">
         <td class="name">${esc(g.name)}${g.notes ? `<span class="sub small muted" style="display:block;font-weight:400">${esc(g.notes)}</span>` : ""}</td>
         <td>${esc(g.side || "")}</td><td>${esc(g.group || "")}</td><td class="r num">${Number(g.party) || 1}${g.plusOne ? " <span class=\"muted\">+1</span>" : ""}</td>
         <td><input type="checkbox" class="po" data-plusone="${g.id}" ${g.plusOne ? "checked" : ""} aria-label="Plus-one for ${esc(g.name)}"></td>
         <td><span class="status ${esc(g.status)}">${g.status === "invited" ? "Inviting" : g.status === "maybe" ? "Maybe" : "Not inviting"}</span></td>
         <td><div class="evdots">${EVENTS.map(e => `<span class="${g.events && g.events[e.key] ? "on" : ""}" title="${esc(e.label)}">${e.short}</span>`).join("")}</div></td>
+        <td><div class="evdots checks-dots">${CHECKLIST.map(c => `<button type="button" class="ck ${g.checks && g.checks[c.key] ? "on" : ""}" data-check="${c.key}" data-guest-id="${g.id}" title="${esc(c.label)}${g.checks && g.checks[c.key] ? " ✓" : ""}" aria-pressed="${!!(g.checks && g.checks[c.key])}">${g.checks && g.checks[c.key] ? "✓" : c.short}</button>`).join("")}</div></td>
       </tr>`).join("")}</tbody></table>`
     : `<div class="empty">${state.guests.length ? "No guests match that filter." : "No guests yet. Add one at a time, or paste a whole list below."}</div>`}
   </div>
@@ -1351,6 +1385,8 @@ function renderGuests() {
       <p class="eyebrow">Legend</p>
       <h3>Event letters</h3>
       <div class="progress">${EVENTS.map(e => `<div class="prog"><span><span class="evdots" style="display:inline-flex;vertical-align:middle;margin-right:8px"><span class="on">${e.short}</span></span>${esc(e.label)}</span><span class="pill">${e.default ? "on by default" : "off by default"}</span></div>`).join("")}</div>
+      <p class="eyebrow" style="margin-top:14px">Checklist letters</p>
+      <div class="progress">${CHECKLIST.map(c => `<div class="prog"><span><span class="evdots" style="display:inline-flex;vertical-align:middle;margin-right:8px"><span class="ck on" style="cursor:default">${c.short}</span></span>${esc(c.label)}</span><span class="pill">${esc(c.help || "click the letter on a guest to toggle")}</span></div>`).join("")}</div>
       <p class="small muted" style="margin-top:10px">Click any guest to change which events they are part of. Only guests marked "Inviting" count toward headcounts and the budget.</p>
     </div>
   </div>`;
@@ -1412,6 +1448,13 @@ function bindMain() {
     });
     po.addEventListener("change", () => { savePlan({ plusOneRate: state.plan.plusOneRate }); render(); });
   }
+  main.querySelectorAll("[data-check]").forEach(b => b.addEventListener("click", e => {
+    e.stopPropagation();
+    const g = byId(state.guests, b.dataset.guestId); if (!g) return;
+    const checks = { ...(g.checks || {}) }; checks[b.dataset.check] = !checks[b.dataset.check];
+    saveGuest({ ...g, checks });
+  }));
+  main.querySelectorAll("[data-check-filter]").forEach(b => b.addEventListener("click", () => { state.filter.check = state.filter.check === b.dataset.checkFilter ? "all" : b.dataset.checkFilter; render(); }));
   main.querySelectorAll("[data-plusone]").forEach(c => {
     c.addEventListener("click", e => e.stopPropagation());
     c.addEventListener("change", () => { const g = byId(state.guests, c.dataset.plusone); if (g) saveGuest({ ...g, plusOne: c.checked }); });
@@ -1441,7 +1484,8 @@ function bindMain() {
   const fs = $("#g-filter-status"); if (fs) fs.addEventListener("change", () => { state.filter.status = fs.value; render(); });
   const fd = $("#g-filter-side"); if (fd) fd.addEventListener("change", () => { state.filter.side = fd.value; render(); });
   const fg = $("#g-filter-group"); if (fg) fg.addEventListener("change", () => { state.filter.group = fg.value; render(); });
-  const fc = $("#g-clear-filters"); if (fc) fc.addEventListener("click", () => { state.filter = { q: "", status: "all", side: "all", group: "all" }; render(); });
+  const fk = $("#g-filter-check"); if (fk) fk.addEventListener("change", () => { state.filter.check = fk.value; render(); });
+  const fc = $("#g-clear-filters"); if (fc) fc.addEventListener("click", () => { state.filter = { q: "", status: "all", side: "all", group: "all", check: "all" }; render(); });
   const add = $("#g-add"); if (add) add.addEventListener("click", () => openGuest(null));
   const ex = $("#g-export"); if (ex) ex.addEventListener("click", exportGuests);
   main.querySelectorAll("[data-guest]").forEach(r => {
@@ -1459,7 +1503,7 @@ async function bulkAdd() {
   const added = [];
   for (const line of lines) {
     const m = /^(.*?)(?:,\s*(\d+))?$/.exec(line);
-    const g = { id: uid(), name: (m[1] || line).trim(), side, group, party: Math.max(1, +m[2] || 1), plusOne: false, status, events: { ...events }, notes: "", createdAt: Date.now() };
+    const g = { id: uid(), name: (m[1] || line).trim(), side, group, party: Math.max(1, +m[2] || 1), plusOne: false, status, events: { ...events }, checks: {}, notes: "", createdAt: Date.now() };
     added.push(g);
   }
   await saveGuests(added);
@@ -1472,6 +1516,7 @@ function openGuest(g) {
   $("#guest-dialog-title").textContent = g ? "Edit guest" : "Add a guest";
   $("#g-side").innerHTML = CONFIG.sides.map(s => `<option>${esc(s)}</option>`).join("");
   $("#g-group").innerHTML = CONFIG.groups.map(s => `<option>${esc(s)}</option>`).join("");
+  $("#g-checks").innerHTML = CHECKLIST.map(c => `<label title="${esc(c.help || "")}"><input type="checkbox" id="g-ck-${c.key}" ${(g && g.checks && g.checks[c.key]) ? "checked" : ""}> ${esc(c.label)}</label>`).join("");
   $("#g-events").innerHTML = EVENTS.map(e => `<label><input type="checkbox" id="g-ev-${e.key}" data-ev="${e.key}" ${(g ? g.events && g.events[e.key] : e.default) ? "checked" : ""}> ${esc(e.label)}</label>`).join("");
   $("#g-name").value = g ? g.name : "";
   $("#g-side").value = g ? g.side : CONFIG.sides[0];
@@ -1495,8 +1540,9 @@ $("#guest-form").addEventListener("submit", async e => {
   e.preventDefault();
   const name = $("#g-name").value.trim(); if (!name) return;
   const events = {}; EVENTS.forEach(ev => events[ev.key] = $("#g-ev-" + ev.key).checked);
+  const checks = {}; CHECKLIST.forEach(c => checks[c.key] = $("#g-ck-" + c.key).checked);
   const g = { id: editing ? editing.id : uid(), name, side: $("#g-side").value, group: $("#g-group").value,
-    party: Math.max(1, +$("#g-party").value || 1), plusOne: $("#g-plusone").checked, status: $("#g-status").value, events, notes: $("#g-notes").value.trim(),
+    party: Math.max(1, +$("#g-party").value || 1), plusOne: $("#g-plusone").checked, status: $("#g-status").value, events, checks, notes: $("#g-notes").value.trim(),
     createdAt: editing ? (editing.createdAt || Date.now()) : Date.now() };
   $("#guest-dialog").close();
   await saveGuest(g); toast(editing ? "Guest updated" : "Guest added");
